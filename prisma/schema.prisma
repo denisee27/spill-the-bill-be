@@ -1,0 +1,302 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  phone         String?
+  role          String    @default("USER")
+  isMember      Boolean   @default(false)
+  memberSince   DateTime?
+  memberExpiry  DateTime?
+  createdAt     DateTime  @default(now())
+
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  notifications Notification[]
+  voucherUsages VoucherUsage[]
+}
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        String
+  label         String
+  recipientName String
+  phone         String
+  street        String
+  city          String
+  province      String
+  postalCode    String
+  isDefault     Boolean  @default(false)
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  type        String    @default("ALL")
+
+  products    Product[]
+}
+
+model Origin {
+  id        String    @id @default(uuid())
+  label     String
+  address   String
+  city      String
+  province  String
+  createdAt DateTime  @default(now())
+
+  products  Product[]
+}
+
+model Product {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  description   String?
+  type          String
+  categoryId    String?
+  originalPrice Float?
+  price         Float
+  fee           Float     @default(0)
+  stock         Int       @default(0)
+  images        String    @default("[]")
+  isActive      Boolean   @default(true)
+  isFeatured    Boolean   @default(false)
+  isSoldOut     Boolean   @default(false)
+  originId      String?
+  weight        Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  category      Category? @relation(fields: [categoryId], references: [id])
+  origin        Origin?   @relation(fields: [originId], references: [id])
+  variants      ProductVariant[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  eventProducts EventProduct[]
+}
+
+model ProductVariant {
+  id            String  @id @default(uuid())
+  productId     String
+  name          String
+  price         Float
+  fee           Float   @default(0)
+  originalPrice Float?
+  stock         Int     @default(0)
+  imageUrl      String?
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+  orderItems OrderItem[]
+}
+
+model Cart {
+  id     String     @id @default(uuid())
+  userId String     @unique
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  CartItem[]
+}
+
+model CartItem {
+  id        String          @id @default(uuid())
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int             @default(1)
+
+  cart      Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Order {
+  id                   String    @id @default(uuid())
+  userId               String
+  addressId            String?
+  status               String    @default("PENDING_PAYMENT")
+  subtotal             Float
+  shippingFee          Float     @default(0)
+  discountAmount       Float     @default(0)
+  total                Float
+  voucherCode          String?
+  notes                String?
+  rejectionNotes       String?
+  deliveryProofImages   String    @default("[]")
+  deliveryNotes         String?
+  estimatedDeliveryDate DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user           User          @relation(fields: [userId], references: [id])
+  address        Address?      @relation(fields: [addressId], references: [id])
+  items          OrderItem[]
+  paymentProofs  PaymentProof[]
+  refundRequest  RefundRequest?
+  refundDetail   RefundDetail?
+  voucherUsage   VoucherUsage?
+}
+
+model OrderItem {
+  id          String          @id @default(uuid())
+  orderId     String
+  productId   String?
+  variantId   String?
+  productName String
+  variantName String?
+  price       Float
+  quantity    Int
+
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product?        @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model PaymentProof {
+  id        String   @id @default(uuid())
+  orderId   String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model RefundRequest {
+  id              String        @id @default(uuid())
+  orderId         String        @unique
+  reason          String
+  status          String        @default("PENDING")
+  adminNotes      String?
+  adminProofImages String       @default("[]")
+  createdAt       DateTime      @default(now())
+
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  images    RefundImage[]
+}
+
+model RefundImage {
+  id              String        @id @default(uuid())
+  refundRequestId String
+  imageUrl        String
+
+  refundRequest   RefundRequest @relation(fields: [refundRequestId], references: [id], onDelete: Cascade)
+}
+
+model RefundDetail {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  method          String
+  bankName        String?
+  accountNumber   String?
+  accountName     String?
+  ewalletPlatform String?
+  ewalletNumber   String?
+  createdAt       DateTime @default(now())
+
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Voucher {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  type           String
+  value          Float
+  minOrderAmount Float          @default(0)
+  maxUses        Int?
+  usedCount      Int            @default(0)
+  isActive       Boolean        @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  usages         VoucherUsage[]
+}
+
+model VoucherUsage {
+  id        String   @id @default(uuid())
+  voucherId String
+  orderId   String   @unique
+  userId    String
+  usedAt    DateTime @default(now())
+
+  voucher   Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model MemberSetting {
+  id                    Int     @id @default(1)
+  minMonthlyAmount      Float   @default(500000)
+  discountPercent       Float   @default(10)
+  hasFreeShipping       Boolean @default(false)
+  freeShippingMinAmount Float   @default(0)
+  renewalPeriodDays     Int     @default(30)
+}
+
+model WhatsappSetting {
+  id             Int     @id @default(1)
+  phoneNumber    String  @default("")
+  defaultMessage String  @default("Halo, saya ingin menanyakan tentang pesanan saya.")
+  isActive       Boolean @default(true)
+}
+
+model Portfolio {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        String
+  images      String   @default("[]")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  destination String?
+  bannerImage String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    EventProduct[]
+}
+
+model EventProduct {
+  eventId   String
+  productId String
+
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, productId])
+}

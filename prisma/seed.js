@@ -44,9 +44,9 @@ async function main() {
 
   const user1 = await prisma.user.create({
     data: {
-      email: 'sarah@demo.com',
+      email: 'clau@demo.com',
       password: userHash,
-      name: 'Sarah Wijaya',
+      name: 'Claudia Dewanti',
       phone: '628111000002',
       role: 'USER',
       isMember: true,
@@ -62,20 +62,16 @@ async function main() {
       name: 'Budi Santoso',
       phone: '628111000003',
       role: 'USER',
-      isMember: false,
     },
   });
 
   const user3 = await prisma.user.create({
     data: {
-      email: 'dewi@demo.com',
+      email: 'sari@demo.com',
       password: userHash,
-      name: 'Dewi Rahayu',
+      name: 'Sari Putri',
       phone: '628111000004',
       role: 'USER',
-      isMember: true,
-      memberSince: new Date('2026-09-01'),
-      memberExpiry: new Date('2026-10-01'),
     },
   });
 
@@ -86,7 +82,7 @@ async function main() {
     data: {
       userId: user1.id,
       label: 'Home',
-      recipientName: 'Sarah Wijaya',
+      recipientName: 'Clau Dewanti',
       phone: '628111000002',
       street: 'Jl. Kebon Jeruk No. 12',
       city: 'Jakarta Barat',
@@ -100,12 +96,12 @@ async function main() {
     data: {
       userId: user1.id,
       label: 'Office',
-      recipientName: 'Sarah Wijaya',
+      recipientName: 'Clau Dewanti',
       phone: '628111000002',
-      street: 'Jl. Sudirman Kav. 52-53, Lantai 10',
-      city: 'Jakarta Pusat',
+      street: 'Jl. Sudirman No. 50',
+      city: 'Jakarta Selatan',
       province: 'DKI Jakarta',
-      postalCode: '10220',
+      postalCode: '12930',
       isDefault: false,
     },
   });
@@ -116,10 +112,10 @@ async function main() {
       label: 'Home',
       recipientName: 'Budi Santoso',
       phone: '628111000003',
-      street: 'Jl. Raya Bogor KM 25 No. 7',
-      city: 'Depok',
-      province: 'Jawa Barat',
-      postalCode: '16415',
+      street: 'Jl. Gatot Subroto No. 22',
+      city: 'Jakarta Selatan',
+      province: 'DKI Jakarta',
+      postalCode: '12780',
       isDefault: true,
     },
   });
@@ -128,12 +124,12 @@ async function main() {
     data: {
       userId: user3.id,
       label: 'Home',
-      recipientName: 'Dewi Rahayu',
+      recipientName: 'Sari Putri',
       phone: '628111000004',
-      street: 'Jl. Teuku Umar No. 88',
-      city: 'Denpasar',
-      province: 'Bali',
-      postalCode: '80234',
+      street: 'Jl. TB Simatupang No. 8',
+      city: 'Jakarta Selatan',
+      province: 'DKI Jakarta',
+      postalCode: '12550',
       isDefault: true,
     },
   });
@@ -914,9 +910,9 @@ async function main() {
   console.log('\nSeeding complete!');
   console.log('\n── Credentials ─────────────────────');
   console.log('Admin  : admin@demo.com / admin123');
-  console.log('User 1 : sarah@demo.com  / user123  (member active)');
-  console.log('User 2 : budi@demo.com   / user123');
-  console.log('User 3 : dewi@demo.com   / user123  (member active)');
+  console.log('User 1 : clau@demo.com  / user123  (member active)');
+  console.log('User 2 : budi@demo.com  / user123');
+  console.log('User 3 : sari@demo.com  / user123');
   console.log('────────────────────────────────────');
 }
 

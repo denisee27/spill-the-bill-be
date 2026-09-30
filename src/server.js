@@ -4,8 +4,6 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import pinoHttp from 'pino-http';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 import { config } from './config/index.js';
 import logger from './infra/logger/index.js';
@@ -32,9 +30,6 @@ import { makeShippingRouter } from './api/v1/shipping/shipping.router.js';
 import { startMemberRenewalJob } from './jobs/member-renewal.job.js';
 import { startAutoCancelOrdersJob } from './jobs/auto-cancel-orders.job.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 
 // Build DI container
@@ -51,7 +46,6 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
 app.use(
   pinoHttp({
     logger,

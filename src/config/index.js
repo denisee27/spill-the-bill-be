@@ -3,6 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+process.env.DATABASE_URL = isProduction
+  ? process.env.DATABASE_URL_PROD
+  : process.env.DATABASE_URL_DEV;
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(1),

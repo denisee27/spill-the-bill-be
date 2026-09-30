@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import logger from '../logger/index.js';
-import { otpEmailText } from './otp.template.js';
+import { otpEmailHtml, otpEmailText } from './otp.template.js';
 import {
   orderCreatedEmailHtml,
   orderCreatedEmailText,
@@ -19,24 +19,47 @@ import {
 } from './order.template.js';
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
-    user: 'spillthebillteam@gmail.com',
-    pass: 'ifhyubwxfjnusfgk',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
-const FROM = '"Spill the Bill" <spillthebillteam@gmail.com>';
+const FROM = process.env.SMTP_FROM || `"Spill the Bill" <${process.env.SMTP_USER}>`;
+const REPLY_TO = process.env.SMTP_USER;
 
 export async function sendMail({ to, subject, html, text }) {
   try {
-    const info = await transporter.sendMail({ from: FROM, to, subject, text: text || '', html });
+    const info = await transporter.sendMail({
+      from: FROM,
+      replyTo: REPLY_TO,
+      to,
+      subject,
+      text: text || '',
+      html,
+    });
     logger.info({ messageId: info.messageId, to }, 'Email sent');
     return info;
   } catch (err) {
     logger.error({ err, to }, 'Failed to send email');
+    throw err;
+  }
+}
+
+export async function sendOtpEmail({ to, code }) {
+  try {
+    await sendMail({
+      to,
+      subject: 'Your Spill the Bill Verification Code',
+      html: otpEmailHtml(code),
+      text: otpEmailText(code),
+    });
+    logger.info({ to }, 'OTP email sent');
+  } catch (err) {
+    logger.error({ err, to }, 'Failed to send OTP email');
     throw err;
   }
 }
@@ -73,7 +96,7 @@ export async function sendPaymentApprovedEmail({ to, orderId, customerName, amou
   try {
     await sendMail({
       to,
-      subject: `Payment Confirmed ✓ - Order #${orderId.toString().slice(0, 8).toUpperCase()}`,
+      subject: `Payment Confirmed - Order #${orderId.toString().slice(0, 8).toUpperCase()}`,
       html: paymentApprovedEmailHtml({ customerName, orderId, amount }),
       text: paymentApprovedEmailText({ customerName, orderId, amount }),
     });
@@ -101,7 +124,7 @@ export async function sendOrderDeliveredEmail({ to, orderId, customerName, deliv
   try {
     await sendMail({
       to,
-      subject: `Your Order Has Been Delivered! - Order #${orderId.toString().slice(0, 8).toUpperCase()}`,
+      subject: `Order Delivered - #${orderId.toString().slice(0, 8).toUpperCase()}`,
       html: orderDeliveredEmailHtml({ customerName, orderId, deliveryNotes, proofImageUrls }),
       text: orderDeliveredEmailText({ customerName, orderId, deliveryNotes }),
     });
@@ -115,7 +138,7 @@ export async function sendOrderShippedEmail({ to, orderId, customerName, deliver
   try {
     await sendMail({
       to,
-      subject: `Your Order Is On Its Way! - Order #${orderId.toString().slice(0, 8).toUpperCase()}`,
+      subject: `Your Order Is On Its Way - #${orderId.toString().slice(0, 8).toUpperCase()}`,
       html: orderShippedEmailHtml({ customerName, orderId, deliveryNotes, estimatedDeliveryDate, frontendUrl }),
       text: orderShippedEmailText({ customerName, orderId, deliveryNotes, estimatedDeliveryDate }),
     });

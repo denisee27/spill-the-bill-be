@@ -286,7 +286,7 @@ Thank you for shopping with Spill the Bill!
 // ── 5. Order shipped ─────────────────────────────────────────────────────────
 export function orderShippedEmailHtml({ customerName, orderId, deliveryNotes, estimatedDeliveryDate, frontendUrl }) {
   const etaText = estimatedDeliveryDate
-    ? new Date(estimatedDeliveryDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(estimatedDeliveryDate).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
   const body = `
@@ -316,7 +316,7 @@ export function orderShippedEmailHtml({ customerName, orderId, deliveryNotes, es
 
 export function orderShippedEmailText({ customerName, orderId, deliveryNotes, estimatedDeliveryDate }) {
   const etaText = estimatedDeliveryDate
-    ? new Date(estimatedDeliveryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(estimatedDeliveryDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
   return `Hi ${customerName},
 

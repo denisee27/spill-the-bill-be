@@ -1,7 +1,6 @@
 import { config } from '../../../config/index.js';
-import { sendMail } from '../../../infra/mailer/index.js';
+import { sendOtpEmail } from '../../../infra/mailer/index.js';
 import { generateOtp, saveOtp, verifyOtp as checkOtp } from '../../../infra/mailer/otp.store.js';
-import { otpEmailHtml, otpEmailText } from '../../../infra/mailer/otp.template.js';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -54,12 +53,7 @@ export const makeAuthController = ({ authService }) => {
       if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
       const code = generateOtp();
       saveOtp(email, code);
-      await sendMail({
-        to: email,
-        subject: 'Spill the Bill - Verification Code',
-        html: otpEmailHtml(code),
-        text: otpEmailText(code),
-      });
+      await sendOtpEmail({ to: email, code });
       return res.json({ success: true, data: { message: 'Verification code sent' } });
     } catch (err) {
       next(err);

@@ -34,7 +34,7 @@ export const makeCartService = ({ cartRepository, productRepository }) => {
 
   const addItem = async (userId, { productId, variantId, quantity }) => {
     const product = await productRepository.findById(productId);
-    if (!product || !product.isActive) throw new NotFoundError('Product not found');
+    if (!product || product.status !== 'ACTIVE') throw new NotFoundError('Product not found');
 
     if (variantId) {
       const variant = product.variants.find((v) => v.id === variantId);

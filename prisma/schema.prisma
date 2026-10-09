@@ -24,6 +24,8 @@ model User {
   orders        Order[]
   notifications Notification[]
   voucherUsages VoucherUsage[]
+  favorites     Favorite[]
+  reviews       Review[]
 }
 
 model Address {
@@ -35,11 +37,27 @@ model Address {
   street        String
   city          String
   province      String
-  postalCode    String
+  postalCode    String?
   isDefault     Boolean  @default(false)
+  provinceCode  String?  @db.Char(2)
+  regencyCode   String?  @db.Char(4)
+  districtCode  String?  @db.Char(6)
+  villageCode   String?  @db.Char(10)
 
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders        Order[]
+}
+
+model ProductType {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  color     String   @default("#6b7280")
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("product_types")
 }
 
 model Category {
@@ -54,14 +72,18 @@ model Category {
 }
 
 model Origin {
-  id        String    @id @default(uuid())
-  label     String
-  address   String
-  city      String
-  province  String
-  createdAt DateTime  @default(now())
+  id           String    @id @default(uuid())
+  label        String
+  address      String
+  city         String
+  province     String
+  provinceCode String?   @db.Char(2)
+  regencyCode  String?   @db.Char(4)
+  districtCode String?   @db.Char(6)
+  villageCode  String?   @db.Char(10)
+  createdAt    DateTime  @default(now())
 
-  products  Product[]
+  products     Product[]
 }
 
 model Product {
@@ -76,11 +98,13 @@ model Product {
   fee           Float     @default(0)
   stock         Int       @default(0)
   images        String    @default("[]")
-  isActive      Boolean   @default(true)
+  status        String    @default("DRAFT")
   isFeatured    Boolean   @default(false)
   isSoldOut     Boolean   @default(false)
   originId      String?
+  condition     String?   @default("New")
   weight        Float     @default(0)
+  viewCount     Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -90,6 +114,9 @@ model Product {
   cartItems     CartItem[]
   orderItems    OrderItem[]
   eventProducts EventProduct[]
+  favorites     Favorite[]
+  reviews       Review[]
+  views         ProductView[]
 }
 
 model ProductVariant {
@@ -137,11 +164,13 @@ model Order {
   discountAmount       Float     @default(0)
   total                Float
   voucherCode          String?
+  courierService       String?
   notes                String?
   rejectionNotes       String?
   deliveryProofImages   String    @default("[]")
   deliveryNotes         String?
   estimatedDeliveryDate DateTime?
+  expiresAt             DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -299,4 +328,72 @@ model EventProduct {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([eventId, productId])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model ProductView {
+  id        String   @id @default(uuid())
+  userId    String?
+  productId String
+  viewedAt  DateTime @default(now())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Indonesian Administrative Region tables (read-only seed data)
+model RegProvince {
+  id   String @id @db.Char(2)
+  name String
+
+  @@map("reg_provinces")
+}
+
+model RegRegency {
+  id         String @id @db.Char(4)
+  provinceId String @map("province_id") @db.Char(2)
+  name       String
+
+  @@map("reg_regencies")
+}
+
+model RegDistrict {
+  id        String @id @db.Char(6)
+  regencyId String @map("regency_id") @db.Char(4)
+  name      String
+
+  @@map("reg_districts")
+}
+
+model RegVillage {
+  id         String @id @db.Char(10)
+  districtId String @map("district_id") @db.Char(6)
+  name       String
+
+  @@map("reg_villages")
 }

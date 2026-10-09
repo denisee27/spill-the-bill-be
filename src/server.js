@@ -25,6 +25,10 @@ import { makeAddressRouter } from './api/v1/addresses/address.router.js';
 import { makeEventRouter } from './api/v1/events/event.router.js';
 import { makeOriginRouter } from './api/v1/origins/origin.router.js';
 import { makeShippingRouter } from './api/v1/shipping/shipping.router.js';
+import { makeFavoriteRouter } from './api/v1/favorites/favorite.router.js';
+import { makeReviewRouter } from './api/v1/reviews/review.router.js';
+import { makeRegionRouter } from './api/v1/regions/region.router.js';
+import { makeProductTypeRouter } from './api/v1/product-types/product-type.router.js';
 
 // Jobs
 import { startMemberRenewalJob } from './jobs/member-renewal.job.js';
@@ -83,6 +87,10 @@ app.use('/api/v1/addresses', makeAddressRouter(container));
 app.use('/api/v1/events', makeEventRouter(container));
 app.use('/api/v1/origins', makeOriginRouter(container));
 app.use('/api/v1/shipping', makeShippingRouter(container));
+app.use('/api/v1/favorites', makeFavoriteRouter(container));
+app.use('/api/v1/reviews', makeReviewRouter(container));
+app.use('/api/v1/regions', makeRegionRouter(container));
+app.use('/api/v1/product-types', makeProductTypeRouter(container));
 
 // Health check
 app.get('/health', (req, res) => {

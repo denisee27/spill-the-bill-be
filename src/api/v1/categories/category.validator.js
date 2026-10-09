@@ -5,7 +5,7 @@ export const createCategorySchema = z.object({
   slug: z.string().optional(),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
-  type: z.enum(['JASTIP', 'PRELOVED', 'ALL']).default('ALL'),
+  type: z.string().default('ALL'),
 });
 
 export const updateCategorySchema = createCategorySchema.partial();

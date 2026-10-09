@@ -18,6 +18,9 @@ import { makeAddressRepository } from './core/repositories/address.repository.js
 import { makeEventRepository } from './core/repositories/event.repository.js';
 import { makeOriginRepository } from './core/repositories/origin.repository.js';
 import { makeNotificationRepository } from './core/repositories/notification.repository.js';
+import { makeFavoriteRepository } from './core/repositories/favorite.repository.js';
+import { makeReviewRepository } from './core/repositories/review.repository.js';
+import { makeProductTypeRepository } from './core/repositories/product-type.repository.js';
 
 // Services
 import { makeAuthService } from './core/services/auth.service.js';
@@ -34,6 +37,7 @@ import { makeAddressService } from './core/services/address.service.js';
 import { makeEventService } from './core/services/event.service.js';
 import { makeOriginService } from './core/services/origin.service.js';
 import { makeShippingService } from './core/services/shipping.service.js';
+import { makeProductTypeService } from './core/services/product-type.service.js';
 
 export const buildContainer = () => {
   const container = createContainer({ injectionMode: 'PROXY' });
@@ -60,6 +64,9 @@ export const buildContainer = () => {
     eventRepository: asFunction(makeEventRepository).singleton(),
     originRepository: asFunction(makeOriginRepository).singleton(),
     notificationRepository: asFunction(makeNotificationRepository).singleton(),
+    favoriteRepository: asFunction(makeFavoriteRepository).singleton(),
+    reviewRepository: asFunction(makeReviewRepository).singleton(),
+    productTypeRepository: asFunction(makeProductTypeRepository).singleton(),
 
     // Services
     authService: asFunction(makeAuthService).singleton(),
@@ -76,6 +83,7 @@ export const buildContainer = () => {
     eventService: asFunction(makeEventService).singleton(),
     originService: asFunction(makeOriginService).singleton(),
     shippingService: asFunction(makeShippingService).singleton(),
+    productTypeService: asFunction(makeProductTypeService).singleton(),
   });
 
   return container;

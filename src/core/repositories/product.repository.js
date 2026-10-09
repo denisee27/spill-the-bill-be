@@ -1,31 +1,36 @@
 export const makeProductRepository = ({ prisma }) => {
-  const findAll = async ({ type, categoryId, search, page = 1, limit = 20, isActive = true } = {}) => {
+  const findAll = async ({ type, categoryId, categoryIds, search, minPrice, maxPrice, condition, inStock, isFeatured, sortBy, page = 1, limit = 20, status, adminMode = false } = {}) => {
     const skip = (page - 1) * limit;
-    const now = new Date();
-
-    const eventVisibilityFilter = {
-      OR: [
-        { eventProducts: { none: {} } },
-        {
-          eventProducts: {
-            some: {
-              event: {
-                status: 'ACTIVE',
-                OR: [{ endDate: null }, { endDate: { gt: now } }],
-              },
-            },
-          },
-        },
-      ],
-    };
-
-    const conditions = [{ isActive }, eventVisibilityFilter];
+    const conditions = adminMode ? [] : [{ status: status || 'ACTIVE' }];
+    if (!adminMode && status) conditions[0] = { status };
     if (type) conditions.push({ type });
-    if (categoryId) conditions.push({ categoryId });
+    if (categoryIds) {
+      conditions.push({ categoryId: { in: categoryIds.split(',').filter(Boolean) } });
+    } else if (categoryId) {
+      conditions.push({ categoryId });
+    }
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      conditions.push({
+        price: {
+          ...(minPrice !== undefined ? { gte: parseFloat(minPrice) } : {}),
+          ...(maxPrice !== undefined ? { lte: parseFloat(maxPrice) } : {}),
+        },
+      });
+    }
+    if (condition) conditions.push({ condition });
+    if (inStock) conditions.push({ stock: { gt: 0 } });
+    if (isFeatured) conditions.push({ isFeatured: true });
     if (search) {
       conditions.push({ OR: [{ name: { contains: search } }, { description: { contains: search } }] });
     }
 
+    const orderByMap = {
+      price_asc: { price: 'asc' },
+      price_desc: { price: 'desc' },
+      newest: { createdAt: 'desc' },
+      name_asc: { name: 'asc' },
+    };
+    const orderBy = orderByMap[sortBy] || { createdAt: 'desc' };
     const where = { AND: conditions };
 
     const [products, total] = await Promise.all([
@@ -34,7 +39,7 @@ export const makeProductRepository = ({ prisma }) => {
         skip,
         take: limit,
         include: { variants: true, category: true, origin: true },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       prisma.product.count({ where }),
     ]);
@@ -44,7 +49,7 @@ export const makeProductRepository = ({ prisma }) => {
 
   const findFeatured = async () => {
     return prisma.product.findMany({
-      where: { isFeatured: true, isActive: true },
+      where: { isFeatured: true, status: 'ACTIVE' },
       include: { variants: true, category: true, origin: true },
     });
   };
@@ -81,7 +86,7 @@ export const makeProductRepository = ({ prisma }) => {
   const softDelete = async (id) => {
     return prisma.product.update({
       where: { id },
-      data: { isActive: false },
+      data: { status: 'INACTIVE' },
     });
   };
 
@@ -126,5 +131,16 @@ export const makeProductRepository = ({ prisma }) => {
   const bulkSoldIn = (ids) =>
     prisma.product.updateMany({ where: { id: { in: ids } }, data: { isSoldOut: false } });
 
-  return { findAll, findFeatured, findById, findBySlug, create, update, softDelete, decrementStock, decrementVariantStock, incrementStock, incrementVariantStock, updateStock, bulkSoldOut, bulkSoldIn };
+  const searchSuggestions = async (q) =>
+    prisma.product.findMany({
+      where: { status: 'ACTIVE', name: { contains: q, mode: 'insensitive' } },
+      select: { id: true, name: true, price: true, type: true, slug: true, images: true },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    });
+
+  const incrementViewCount = (id) =>
+    prisma.product.update({ where: { id }, data: { viewCount: { increment: 1 } } });
+
+  return { findAll, findFeatured, findById, findBySlug, create, update, softDelete, decrementStock, decrementVariantStock, incrementStock, incrementVariantStock, updateStock, bulkSoldOut, bulkSoldIn, searchSuggestions, incrementViewCount };
 };

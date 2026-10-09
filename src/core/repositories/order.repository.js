@@ -158,8 +158,15 @@ export const makeOrderRepository = ({ prisma }) => {
   };
 
   const findExpiredPendingOrders = async (cutoffDate) => {
+    const now = new Date();
     return prisma.order.findMany({
-      where: { status: 'PENDING_PAYMENT', createdAt: { lt: cutoffDate } },
+      where: {
+        status: 'PENDING_PAYMENT',
+        OR: [
+          { expiresAt: { lt: now } },
+          { expiresAt: null, createdAt: { lt: cutoffDate } },
+        ],
+      },
       include: { items: true },
     });
   };

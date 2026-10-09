@@ -1,0 +1,2 @@
+ALTER TABLE "Origin" ADD COLUMN IF NOT EXISTS "districtCode" CHAR(6);
+ALTER TABLE "Origin" ADD COLUMN IF NOT EXISTS "villageCode" CHAR(10);

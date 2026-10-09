@@ -40,6 +40,11 @@ export async function sendMail({ to, subject, html, text }) {
       subject,
       text: text || '',
       html,
+      headers: {
+        'List-Unsubscribe': `<mailto:${REPLY_TO}?subject=unsubscribe>`,
+        'X-Priority': '3',
+        'Precedence': 'bulk',
+      },
     });
     logger.info({ messageId: info.messageId, to }, 'Email sent');
     return info;

@@ -23,7 +23,7 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default('Spill the Bill <no-reply@spillthebill.com>'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
-  BINDERBYTE_API_KEY: z.string().default(''),
+  RAJAONGKIR_API_KEY: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

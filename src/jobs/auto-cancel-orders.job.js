@@ -4,8 +4,8 @@ import logger from '../infra/logger/index.js';
 export const startAutoCancelOrdersJob = (container) => {
   const orderService = container.resolve('orderService');
 
-  // Run every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
+  // Run every minute to catch 5-minute payment expiry
+  cron.schedule('* * * * *', async () => {
     try {
       const count = await orderService.autoExpireOrders();
       if (count > 0) {
@@ -16,5 +16,5 @@ export const startAutoCancelOrdersJob = (container) => {
     }
   });
 
-  logger.info('Auto-cancel orders job scheduled (every 15 minutes)');
+  logger.info('Auto-cancel orders job scheduled (every 1 minute)');
 };

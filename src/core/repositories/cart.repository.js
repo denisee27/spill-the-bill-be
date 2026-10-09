@@ -5,7 +5,7 @@ export const makeCartRepository = ({ prisma }) => {
       include: {
         items: {
           include: {
-            product: { include: { variants: true } },
+            product: { include: { variants: true, origin: true } },
             variant: true,
           },
         },

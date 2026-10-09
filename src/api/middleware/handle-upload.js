@@ -30,6 +30,23 @@ const upload = multer({
   },
 });
 
+async function addWatermark(imageBuffer) {
+  const meta = await sharp(imageBuffer).metadata();
+  const W = meta.width || 800;
+  const H = meta.height || 800;
+  const fontSize = Math.max(16, Math.round(W * 0.04));
+  const svgText = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <style>text{font-family:Arial,sans-serif;font-size:${fontSize}px;fill:rgba(180,180,180,0.55);font-weight:bold;}</style>
+    <g transform="translate(${W / 2},${H / 2}) rotate(-30)">
+      <text text-anchor="middle" dominant-baseline="middle">@spillthebill</text>
+    </g>
+  </svg>`;
+  return sharp(imageBuffer)
+    .composite([{ input: Buffer.from(svgText), top: 0, left: 0 }])
+    .webp({ quality: 90 })
+    .toBuffer();
+}
+
 const processFile = async (file) => {
   if (!file?.buffer) return;
 
@@ -46,7 +63,8 @@ const processFile = async (file) => {
       .resize({ width: 1920, withoutEnlargement: true })
       .webp({ quality: 90 })
       .toBuffer();
-    const url = await uploadToS3(compressed, key, 'image/webp');
+    const withWatermark = await addWatermark(compressed);
+    const url = await uploadToS3(withWatermark, key, 'image/webp');
     file.filename = url;
   }
 };

@@ -43,7 +43,7 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
 
   const getProductById = async (id) => {
     const product = await productRepository.findById(id);
-    if (!product || !product.isActive) throw new NotFoundError('Product not found');
+    if (!product || product.status !== 'ACTIVE') throw new NotFoundError('Product not found');
     return parseImages(product);
   };
 
@@ -66,7 +66,7 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
       ...(data.originalPrice !== undefined && { originalPrice: data.originalPrice === '' || data.originalPrice === null ? null : parseFloat(data.originalPrice) }),
       ...(stock !== undefined && { stock }),
       ...(data.weight !== undefined && { weight: parseFloat(data.weight) }),
-      ...(data.isActive !== undefined && { isActive: data.isActive === true || data.isActive === 'true' }),
+      ...(data.status !== undefined && { status: data.status }),
       ...(data.originId === '' && { originId: null }),
       ...(data.categoryId === '' && { categoryId: null }),
       isSoldOut: hasVariants ? false : (stock !== undefined ? stock === 0 : undefined),
@@ -144,5 +144,34 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
     }
   };
 
-  return { listProducts, getFeatured, getProductById, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut };
+  const getSearchSuggestions = async (q) => productRepository.searchSuggestions(q);
+
+  const incrementViewCount = (id) => productRepository.incrementViewCount(id);
+
+  const duplicateProduct = async (id) => {
+    const existing = await productRepository.findById(id);
+    if (!existing) throw new NotFoundError('Product not found');
+
+    const { id: _id, slug, createdAt, updatedAt, variants, ...rest } = existing;
+    let newSlug = `${slug}-copy-${Date.now()}`;
+    const dup = await productRepository.findBySlug(newSlug);
+    if (dup) newSlug = `${newSlug}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const parsedVariants = variants?.length
+      ? variants.map(({ id: _vid, productId: _pid, createdAt: _ca, updatedAt: _ua, ...v }) => v)
+      : undefined;
+
+    const product = await productRepository.create({
+      ...rest,
+      name: `Copy of ${rest.name}`,
+      slug: newSlug,
+      status: 'INACTIVE',
+      isFeatured: false,
+      variants: parsedVariants ? { create: parsedVariants } : undefined,
+    });
+
+    return parseImages(product);
+  };
+
+  return { listProducts, getFeatured, getProductById, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut, getSearchSuggestions, duplicateProduct, incrementViewCount };
 };

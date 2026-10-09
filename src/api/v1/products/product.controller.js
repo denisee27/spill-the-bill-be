@@ -20,6 +20,15 @@ export const makeProductController = ({ productService }) => {
     }
   };
 
+  const listProductsAdmin = async (req, res, next) => {
+    try {
+      const result = await productService.listProducts({ ...req.query, adminMode: true });
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  };
+
   const getFeatured = async (req, res, next) => {
     try {
       const products = await productService.getFeatured();
@@ -120,5 +129,21 @@ export const makeProductController = ({ productService }) => {
     } catch (err) { next(err); }
   };
 
-  return { listProducts, getFeatured, getProduct, getProductAdmin, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut };
+  const getSearchSuggestions = async (req, res, next) => {
+    try {
+      const q = req.query.q || '';
+      if (q.length < 2) return res.json({ success: true, data: [] });
+      const suggestions = await productService.getSearchSuggestions(q);
+      return res.json({ success: true, data: suggestions });
+    } catch (err) { next(err); }
+  };
+
+  const duplicateProduct = async (req, res, next) => {
+    try {
+      const product = await productService.duplicateProduct(req.params.id);
+      return res.status(201).json({ success: true, data: product });
+    } catch (err) { next(err); }
+  };
+
+  return { listProducts, listProductsAdmin, getFeatured, getProduct, getProductAdmin, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut, getSearchSuggestions, duplicateProduct };
 };

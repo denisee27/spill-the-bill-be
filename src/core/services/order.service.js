@@ -11,6 +11,7 @@ import {
 import { config } from '../../config/index.js';
 
 export const makeOrderService = ({
+  prisma,
   orderRepository,
   cartRepository,
   productRepository,
@@ -20,7 +21,7 @@ export const makeOrderService = ({
   addressRepository,
   notificationRepository,
 }) => {
-  const createOrder = async (userId, { addressId, voucherCode, notes, itemIds }) => {
+  const createOrder = async (userId, { addressId, voucherCode, notes, itemIds, shippingFee: clientShippingFee, courierService }) => {
     const cart = await cartRepository.findByUserId(userId);
     if (!cart || cart.items.length === 0) throw new BadRequestError('Cart is empty');
 
@@ -40,7 +41,7 @@ export const makeOrderService = ({
 
     for (const item of selectedItems) {
       const product = await productRepository.findById(item.productId);
-      if (!product || !product.isActive) {
+      if (!product || product.status !== 'ACTIVE') {
         throw new BadRequestError(`Product "${item.product?.name}" is no longer available`);
       }
 
@@ -102,7 +103,7 @@ export const makeOrderService = ({
 
     const memberSettings = await memberRepository.getSettings();
     const user = await userRepository.findById(userId);
-    let shippingFee = 0;
+    let shippingFee = Math.max(0, Number(clientShippingFee) || 0);
     if (user?.isMember && memberSettings.hasFreeShipping) {
       if (subtotal >= memberSettings.freeShippingMinAmount) {
         shippingFee = 0;
@@ -121,15 +122,32 @@ export const makeOrderService = ({
       total,
       voucherCode: appliedVoucherCode,
       notes: notes ?? null,
+      courierService: courierService ?? null,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
       items: { create: orderItems },
     });
 
-    for (const item of selectedItems) {
-      if (item.variantId) {
-        await productRepository.decrementVariantStock(item.variantId, item.quantity);
-      } else {
-        await productRepository.decrementStock(item.productId, item.quantity);
-      }
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const item of selectedItems) {
+          if (item.variantId) {
+            const result = await tx.productVariant.updateMany({
+              where: { id: item.variantId, stock: { gte: item.quantity } },
+              data: { stock: { decrement: item.quantity } },
+            });
+            if (result.count === 0) throw new ConflictError(`Insufficient stock for "${item.productName}"`);
+          } else {
+            const result = await tx.product.updateMany({
+              where: { id: item.productId, stock: { gte: item.quantity } },
+              data: { stock: { decrement: item.quantity } },
+            });
+            if (result.count === 0) throw new ConflictError(`Insufficient stock for "${item.productName}"`);
+          }
+        }
+      }, { isolationLevel: 'Serializable' });
+    } catch (err) {
+      await prisma.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      throw err;
     }
 
     if (appliedVoucherCode) {
@@ -368,11 +386,25 @@ export const makeOrderService = ({
   };
 
   const autoExpireOrders = async () => {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - 5 * 60 * 1000);
     const expired = await orderRepository.findExpiredPendingOrders(cutoff);
     for (const order of expired) {
-      await orderRepository.updateStatus(order.id, 'CANCELLED');
-      await restoreStock(order.items);
+      await prisma.$transaction(async (tx) => {
+        for (const item of order.items) {
+          if (item.variantId) {
+            await tx.productVariant.update({
+              where: { id: item.variantId },
+              data: { stock: { increment: item.quantity } },
+            });
+          } else {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+        }
+        await tx.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      });
     }
     return expired.length;
   };

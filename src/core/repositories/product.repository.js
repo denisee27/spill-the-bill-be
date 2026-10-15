@@ -1,6 +1,8 @@
 export const makeProductRepository = ({ prisma }) => {
-  const findAll = async ({ type, categoryId, categoryIds, search, minPrice, maxPrice, condition, inStock, isFeatured, sortBy, page = 1, limit = 20, status, adminMode = false } = {}) => {
-    const skip = (page - 1) * limit;
+  const findAll = async ({ type, categoryId, categoryIds, search, minPrice, maxPrice, condition, inStock, isFeatured, isSoldOut, sortBy, page = 1, limit = 20, status, adminMode = false } = {}) => {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+    const skip = (pageNum - 1) * limitNum;
     const conditions = adminMode ? [] : [{ status: status || 'ACTIVE' }];
     if (!adminMode && status) conditions[0] = { status };
     if (type) conditions.push({ type });
@@ -20,31 +22,35 @@ export const makeProductRepository = ({ prisma }) => {
     if (condition) conditions.push({ condition });
     if (inStock) conditions.push({ stock: { gt: 0 } });
     if (isFeatured) conditions.push({ isFeatured: true });
+    if (isSoldOut !== undefined) conditions.push({ isSoldOut: isSoldOut === 'true' || isSoldOut === true });
     if (search) {
       conditions.push({ OR: [{ name: { contains: search } }, { description: { contains: search } }] });
     }
 
     const orderByMap = {
-      price_asc: { price: 'asc' },
-      price_desc: { price: 'desc' },
-      newest: { createdAt: 'desc' },
-      name_asc: { name: 'asc' },
+      price_asc:    { price: 'asc' },
+      price_desc:   { price: 'desc' },
+      newest:       { createdAt: 'desc' },
+      oldest:       { createdAt: 'asc' },
+      updated_desc: { updatedAt: 'desc' },
+      updated_asc:  { updatedAt: 'asc' },
+      name_asc:     { name: 'asc' },
     };
-    const orderBy = orderByMap[sortBy] || { createdAt: 'desc' };
+    const orderBy = orderByMap[sortBy] || { updatedAt: 'desc' };
     const where = { AND: conditions };
 
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
-        take: limit,
+        take: limitNum,
         include: { variants: true, category: true, origin: true },
         orderBy,
       }),
       prisma.product.count({ where }),
     ]);
 
-    return { products, total, page, limit };
+    return { products, total, page: pageNum, limit: limitNum };
   };
 
   const findFeatured = async () => {
@@ -84,10 +90,7 @@ export const makeProductRepository = ({ prisma }) => {
   };
 
   const softDelete = async (id) => {
-    return prisma.product.update({
-      where: { id },
-      data: { status: 'INACTIVE' },
-    });
+    return prisma.product.delete({ where: { id } });
   };
 
   const decrementStock = async (id, quantity) => {

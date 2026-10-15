@@ -152,7 +152,7 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
     const existing = await productRepository.findById(id);
     if (!existing) throw new NotFoundError('Product not found');
 
-    const { id: _id, slug, createdAt, updatedAt, variants, ...rest } = existing;
+    const { id: _id, slug, createdAt, updatedAt, variants, category, origin, viewCount, ...rest } = existing;
     let newSlug = `${slug}-copy-${Date.now()}`;
     const dup = await productRepository.findBySlug(newSlug);
     if (dup) newSlug = `${newSlug}-${Math.random().toString(36).slice(2, 6)}`;

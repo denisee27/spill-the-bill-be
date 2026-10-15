@@ -21,6 +21,11 @@ export const makeReviewRepository = ({ prisma }) => {
       orderBy: { createdAt: 'desc' },
     });
 
+  const findByUserAndProduct = (userId, productId) =>
+    prisma.review.findUnique({
+      where: { userId_productId: { userId, productId } },
+    });
+
   const remove = (userId, productId) =>
     prisma.review.delete({ where: { userId_productId: { userId, productId } } });
 
@@ -33,5 +38,5 @@ export const makeReviewRepository = ({ prisma }) => {
     return { avg: agg._avg.rating || 0, count: agg._count.rating };
   };
 
-  return { upsert, findByProduct, findByUser, remove, avgRating };
+  return { upsert, findByProduct, findByUser, findByUserAndProduct, remove, avgRating };
 };

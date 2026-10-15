@@ -10,6 +10,7 @@ export const createProductSchema = z.object({
   stock: z.coerce.number().int().min(0).default(0),
   status: z.enum(['ACTIVE', 'INACTIVE', 'DRAFT']).optional(),
   isFeatured: z.coerce.boolean().default(false),
+  freeShipping: z.coerce.boolean().default(false),
   condition: z.enum(['New', 'Good', 'Well Used']).optional(),
   weight: z.coerce.number().min(0).default(0),
 });

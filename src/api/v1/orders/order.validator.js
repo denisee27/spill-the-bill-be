@@ -5,6 +5,9 @@ export const createOrderSchema = z.object({
   voucherCode: z.string().optional(),
   notes: z.string().optional(),
   itemIds: z.array(z.string()).optional(),
+  cartItemIds: z.array(z.string()).optional(),
+  shippingFee: z.coerce.number().min(0).optional(),
+  courierService: z.string().optional(),
 });
 
 export const refundSchema = z.object({

@@ -42,7 +42,7 @@ export const makeShippingService = () => {
   /**
    * Calculate domestic shipping cost.
    * V2 API uses form-data (URLSearchParams), not JSON.
-   * Supports multiple couriers via colon separator: "jne:tiki:pos:sicepat"
+   * Supports multiple couriers via colon separator: "jne:jnt:tiki:sicepat"
    *
    * Returns flat array: [{ name, code, service, description, cost, etd }]
    */
@@ -50,7 +50,7 @@ export const makeShippingService = () => {
     originSubdistrictId,
     destinationSubdistrictId,
     weight,
-    couriers = 'jne:tiki:pos:sicepat',
+    couriers = config.SHIPPING_COURIERS,
   }) => {
     const form = new URLSearchParams();
     form.append('origin', String(originSubdistrictId));

@@ -24,6 +24,8 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   RAJAONGKIR_API_KEY: z.string().default(''),
+  SHIPPING_COURIERS: z.string().default('jne:jnt:tiki:sicepat'),
+  PAYMENT_EXPIRY_MINUTES: z.coerce.number().int().positive().default(30),
 });
 
 const parsed = envSchema.safeParse(process.env);

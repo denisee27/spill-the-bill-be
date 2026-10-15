@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 generator client {
@@ -101,6 +102,7 @@ model Product {
   status        String    @default("DRAFT")
   isFeatured    Boolean   @default(false)
   isSoldOut     Boolean   @default(false)
+  freeShipping  Boolean   @default(false)
   originId      String?
   condition     String?   @default("New")
   weight        Float     @default(0)
@@ -348,6 +350,7 @@ model Review {
   productId String
   rating    Int
   comment   String?
+  media     String   @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -1,0 +1,1 @@
+ALTER TABLE "Review" ADD COLUMN "media" TEXT NOT NULL DEFAULT '[]';

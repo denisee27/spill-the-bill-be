@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/require-auth.js';
+import { uploadImages } from '../../middleware/handle-upload.js';
 import { BadRequestError } from '../../../core/errors/http-errors.js';
 
 const reviewSchema = z.object({
@@ -22,11 +23,23 @@ export const makeReviewRouter = (container) => {
     } catch (err) { next(err); }
   });
 
-  router.post('/product/:productId', requireAuth, async (req, res, next) => {
+  router.get('/product/:productId/mine', requireAuth, async (req, res, next) => {
+    try {
+      const review = await reviewRepository.findByUserAndProduct(req.user.id, req.params.productId);
+      res.json({ success: true, data: review ?? null });
+    } catch (err) { next(err); }
+  });
+
+  router.post('/product/:productId', requireAuth, uploadImages('media', 10), async (req, res, next) => {
     try {
       const parsed = reviewSchema.safeParse(req.body);
       if (!parsed.success) throw new BadRequestError(parsed.error.errors[0].message);
-      const review = await reviewRepository.upsert(req.user.id, req.params.productId, parsed.data);
+
+      const mediaUrls = (req.files || []).map((f) => f.filename).filter(Boolean);
+      const review = await reviewRepository.upsert(req.user.id, req.params.productId, {
+        ...parsed.data,
+        media: JSON.stringify(mediaUrls),
+      });
       res.status(201).json({ success: true, data: review });
     } catch (err) { next(err); }
   });

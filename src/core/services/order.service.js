@@ -21,13 +21,14 @@ export const makeOrderService = ({
   addressRepository,
   notificationRepository,
 }) => {
-  const createOrder = async (userId, { addressId, voucherCode, notes, itemIds, shippingFee: clientShippingFee, courierService }) => {
+  const createOrder = async (userId, { addressId, voucherCode, notes, itemIds, cartItemIds, shippingFee: clientShippingFee, courierService }) => {
     const cart = await cartRepository.findByUserId(userId);
     if (!cart || cart.items.length === 0) throw new BadRequestError('Cart is empty');
 
+    const resolvedItemIds = itemIds ?? cartItemIds;
     let selectedItems = cart.items;
-    if (itemIds && itemIds.length > 0) {
-      selectedItems = cart.items.filter((i) => itemIds.includes(i.id));
+    if (resolvedItemIds && resolvedItemIds.length > 0) {
+      selectedItems = cart.items.filter((i) => resolvedItemIds.includes(i.id));
     }
     if (selectedItems.length === 0) throw new BadRequestError('No items selected');
 
@@ -123,7 +124,7 @@ export const makeOrderService = ({
       voucherCode: appliedVoucherCode,
       notes: notes ?? null,
       courierService: courierService ?? null,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      expiresAt: new Date(Date.now() + config.PAYMENT_EXPIRY_MINUTES * 60 * 1000),
       items: { create: orderItems },
     });
 
@@ -386,7 +387,7 @@ export const makeOrderService = ({
   };
 
   const autoExpireOrders = async () => {
-    const cutoff = new Date(Date.now() - 5 * 60 * 1000);
+    const cutoff = new Date(Date.now() - config.PAYMENT_EXPIRY_MINUTES * 60 * 1000);
     const expired = await orderRepository.findExpiredPendingOrders(cutoff);
     for (const order of expired) {
       await prisma.$transaction(async (tx) => {

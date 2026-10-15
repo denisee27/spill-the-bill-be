@@ -63,7 +63,7 @@ export const makeProductRepository = ({ prisma }) => {
   const findById = async (id) => {
     return prisma.product.findUnique({
       where: { id },
-      include: { variants: true, category: true, origin: true },
+      include: { variants: true, category: true, origin: true, eventProducts: true },
     });
   };
 

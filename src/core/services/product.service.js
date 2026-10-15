@@ -47,6 +47,12 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
     return parseImages(product);
   };
 
+  const getProductByIdAdmin = async (id) => {
+    const product = await productRepository.findById(id);
+    if (!product) throw new NotFoundError('Product not found');
+    return parseImages(product);
+  };
+
   const coerceVariants = (variants) =>
     variants.map((v) => ({
       name: v.name,
@@ -173,5 +179,5 @@ export const makeProductService = ({ productRepository, categoryRepository }) =>
     return parseImages(product);
   };
 
-  return { listProducts, getFeatured, getProductById, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut, getSearchSuggestions, duplicateProduct, incrementViewCount };
+  return { listProducts, getFeatured, getProductById, getProductByIdAdmin, createProduct, updateProduct, deleteProduct, updateStock, bulkSoldOut, getSearchSuggestions, duplicateProduct, incrementViewCount };
 };

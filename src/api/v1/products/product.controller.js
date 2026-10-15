@@ -49,7 +49,7 @@ export const makeProductController = ({ productService }) => {
 
   const getProductAdmin = async (req, res, next) => {
     try {
-      const product = await productService.getProductById(req.params.id);
+      const product = await productService.getProductByIdAdmin(req.params.id);
       return res.status(200).json({ success: true, data: product });
     } catch (err) {
       next(err);

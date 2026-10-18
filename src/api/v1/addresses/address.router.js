@@ -7,8 +7,9 @@ import { createAddressSchema, updateAddressSchema } from './address.validator.js
 export const makeAddressRouter = (container) => {
   const router = Router();
   const addressService = container.resolve('addressService');
+  const userRepository = container.resolve('userRepository');
   const { listAddresses, createAddress, updateAddress, deleteAddress, setDefault } =
-    makeAddressController({ addressService });
+    makeAddressController({ addressService, userRepository });
 
   router.use(requireAuth);
 

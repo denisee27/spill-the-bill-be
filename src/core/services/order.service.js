@@ -58,7 +58,10 @@ export const makeOrderService = ({
         price = variant.price + (variant.fee || 0);
         variantName = variant.name;
       } else {
-        if (product.stock < item.quantity) {
+        const effectiveStock = product.variants?.length > 0
+          ? product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+          : product.stock;
+        if (effectiveStock < item.quantity) {
           throw new BadRequestError(`Insufficient stock for "${product.name}"`);
         }
       }
@@ -104,11 +107,24 @@ export const makeOrderService = ({
 
     const memberSettings = await memberRepository.getSettings();
     const user = await userRepository.findById(userId);
-    let shippingFee = Math.max(0, Number(clientShippingFee) || 0);
-    if (user?.isMember && memberSettings.hasFreeShipping) {
+
+    // Member discount on subtotal
+    if (user?.isMember && memberSettings.discountPercent > 0) {
+      const memberDiscount = Math.floor((subtotal * memberSettings.discountPercent) / 100);
+      discountAmount = Math.min(discountAmount + memberDiscount, subtotal);
+    }
+
+    // Shipping fee: validate and apply free shipping
+    let shippingFee = Math.max(0, Math.min(Number(clientShippingFee) || 0, 2_000_000));
+    const allProductsFreeShipping = selectedItems.every((item) => item.product?.freeShipping === true);
+    if (allProductsFreeShipping) {
+      shippingFee = 0;
+    } else if (user?.isMember && memberSettings.hasFreeShipping) {
       if (subtotal >= memberSettings.freeShippingMinAmount) {
         shippingFee = 0;
       }
+    } else if (courierService && shippingFee <= 0) {
+      throw new BadRequestError('Shipping fee is required when a courier is selected');
     }
 
     const total = Math.max(0, subtotal - discountAmount + shippingFee);
@@ -131,19 +147,44 @@ export const makeOrderService = ({
     try {
       await prisma.$transaction(async (tx) => {
         for (const item of selectedItems) {
+          const productName = item.product?.name ?? item.productId;
           if (item.variantId) {
             const result = await tx.productVariant.updateMany({
               where: { id: item.variantId, stock: { gte: item.quantity } },
               data: { stock: { decrement: item.quantity } },
             });
-            if (result.count === 0) throw new ConflictError(`Insufficient stock for "${item.productName}"`);
+            if (result.count === 0) throw new ConflictError(`Insufficient stock for "${productName}"`);
           } else {
-            const result = await tx.product.updateMany({
-              where: { id: item.productId, stock: { gte: item.quantity } },
-              data: { stock: { decrement: item.quantity } },
+            const prod = await tx.product.findUnique({
+              where: { id: item.productId },
+              include: { variants: true },
             });
-            if (result.count === 0) throw new ConflictError(`Insufficient stock for "${item.productName}"`);
+            if (prod?.variants?.length > 0) {
+              const targetVariant = prod.variants.find((v) => v.stock >= item.quantity);
+              if (!targetVariant) throw new ConflictError(`Insufficient stock for "${productName}"`);
+              await tx.productVariant.update({
+                where: { id: targetVariant.id },
+                data: { stock: { decrement: item.quantity } },
+              });
+            } else {
+              const result = await tx.product.updateMany({
+                where: { id: item.productId, stock: { gte: item.quantity } },
+                data: { stock: { decrement: item.quantity } },
+              });
+              if (result.count === 0) throw new ConflictError(`Insufficient stock for "${productName}"`);
+            }
           }
+        }
+
+        // Atomic voucher increment — prevents concurrent over-use
+        if (appliedVoucherId) {
+          const affected = await tx.$executeRaw`
+            UPDATE "Voucher"
+            SET "usedCount" = "usedCount" + 1
+            WHERE id = ${appliedVoucherId}
+              AND ("maxUses" IS NULL OR "usedCount" < "maxUses")
+          `;
+          if (affected === 0) throw new ConflictError('Voucher usage limit reached');
         }
       }, { isolationLevel: 'Serializable' });
     } catch (err) {
@@ -152,21 +193,19 @@ export const makeOrderService = ({
     }
 
     if (appliedVoucherCode) {
-      await voucherRepository.incrementUsed(appliedVoucherCode);
       await voucherRepository.recordUsage(appliedVoucherId, order.id, userId);
     }
 
     await cartRepository.clearCart(cart.id);
 
     const formatRp = (n) => `Rp${Number(n).toLocaleString('id-ID')}`;
-    const qrisUrl = `${config.FRONTEND_URL}/qris.jpeg`;
     const orderUser = await userRepository.findById(userId);
     sendOrderCreatedEmail({
       to: orderUser.email,
       orderId: order.id,
       customerName: orderUser.name,
       amount: formatRp(order.total),
-      qrisUrl,
+      paymentDeadline: order.expiresAt,
     }).catch(() => {});
 
     return order;

@@ -1,4 +1,9 @@
 import nodemailer from 'nodemailer';
+import { readFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import logger from '../logger/index.js';
 import { otpEmailHtml, otpEmailText } from './otp.template.js';
 import {
@@ -69,15 +74,33 @@ export async function sendOtpEmail({ to, code }) {
   }
 }
 
-export async function sendOrderCreatedEmail({ to, orderId, customerName, amount, qrisUrl }) {
+export async function sendOrderCreatedEmail({ to, orderId, customerName, amount, paymentDeadline }) {
   try {
-    await sendMail({
+    let qrisAttachment = null;
+    try {
+      const qrisBuffer = await readFile(join(__dirname, 'qris.jpeg'));
+      qrisAttachment = { filename: 'qris.jpeg', content: qrisBuffer, cid: 'qris', contentDisposition: 'inline' };
+    } catch {
+      logger.warn({ orderId }, 'qris.jpeg not found, skipping attachment');
+    }
+
+    const mailOptions = {
+      from: FROM,
+      replyTo: REPLY_TO,
       to,
       subject: `Order Confirmed - #${orderId.toString().slice(0, 8).toUpperCase()}`,
-      html: orderCreatedEmailHtml({ customerName, orderId, amount, qrisUrl }),
-      text: orderCreatedEmailText({ customerName, orderId, amount }),
-    });
-    logger.info({ orderId, to }, 'Order created email sent');
+      html: orderCreatedEmailHtml({ customerName, orderId, amount, paymentDeadline, qrisDownloadUrl: `${process.env.FRONTEND_URL}/qris.jpeg` }),
+      text: orderCreatedEmailText({ customerName, orderId, amount, paymentDeadline }),
+      headers: {
+        'List-Unsubscribe': `<mailto:${REPLY_TO}?subject=unsubscribe>`,
+        'X-Priority': '3',
+        'Precedence': 'bulk',
+      },
+    };
+    if (qrisAttachment) mailOptions.attachments = [qrisAttachment];
+
+    const info = await transporter.sendMail(mailOptions);
+    logger.info({ messageId: info.messageId, orderId, to }, 'Order created email sent');
   } catch (err) {
     logger.error({ err, orderId }, 'Failed to send order created email');
   }

@@ -1,4 +1,4 @@
-export const makeAddressController = ({ addressService }) => {
+export const makeAddressController = ({ addressService, userRepository }) => {
   const listAddresses = async (req, res, next) => {
     try {
       const addresses = await addressService.listAddresses(req.user.id);
@@ -10,7 +10,11 @@ export const makeAddressController = ({ addressService }) => {
 
   const createAddress = async (req, res, next) => {
     try {
-      const address = await addressService.createAddress(req.user.id, req.body);
+      const user = await userRepository.findById(req.user.id);
+      const address = await addressService.createAddress(req.user.id, {
+        ...req.body,
+        phone: user?.phone || '',
+      });
       return res.status(201).json({ success: true, data: address });
     } catch (err) {
       next(err);
@@ -19,7 +23,11 @@ export const makeAddressController = ({ addressService }) => {
 
   const updateAddress = async (req, res, next) => {
     try {
-      const address = await addressService.updateAddress(req.user.id, req.params.id, req.body);
+      const user = await userRepository.findById(req.user.id);
+      const address = await addressService.updateAddress(req.user.id, req.params.id, {
+        ...req.body,
+        phone: user?.phone || '',
+      });
       return res.status(200).json({ success: true, data: address });
     } catch (err) {
       next(err);

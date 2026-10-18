@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { uploadImages } from '../../middleware/handle-upload.js';
-import { BadRequestError } from '../../../core/errors/http-errors.js';
+import { BadRequestError, ForbiddenError } from '../../../core/errors/http-errors.js';
 
 const reviewSchema = z.object({
   rating: z.coerce.number().int().min(1).max(5),
@@ -12,6 +12,7 @@ const reviewSchema = z.object({
 export const makeReviewRouter = (container) => {
   const router = Router();
   const reviewRepository = container.resolve('reviewRepository');
+  const orderRepository = container.resolve('orderRepository');
 
   router.get('/product/:productId', async (req, res, next) => {
     try {
@@ -34,6 +35,14 @@ export const makeReviewRouter = (container) => {
     try {
       const parsed = reviewSchema.safeParse(req.body);
       if (!parsed.success) throw new BadRequestError(parsed.error.errors[0].message);
+
+      const hasDelivered = await orderRepository.hasDeliveredProductForUser(
+        req.user.id,
+        req.params.productId,
+      );
+      if (!hasDelivered) {
+        throw new ForbiddenError('Kamu hanya bisa memberikan ulasan setelah menerima produk ini');
+      }
 
       const mediaUrls = (req.files || []).map((f) => f.filename).filter(Boolean);
       const review = await reviewRepository.upsert(req.user.id, req.params.productId, {

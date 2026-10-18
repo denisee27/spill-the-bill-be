@@ -1,9 +1,9 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../../config/index.js';
 
-export const signToken = (payload) => {
+export const signToken = (payload, expiresIn) => {
   return jwt.sign(payload, config.JWT_SECRET, {
-    expiresIn: config.JWT_EXPIRES_IN,
+    expiresIn: expiresIn ?? config.JWT_EXPIRES_IN,
   });
 };
 

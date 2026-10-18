@@ -26,6 +26,7 @@ const envSchema = z.object({
   RAJAONGKIR_API_KEY: z.string().default(''),
   SHIPPING_COURIERS: z.string().default('jne:jnt:tiki:sicepat'),
   PAYMENT_EXPIRY_MINUTES: z.coerce.number().int().positive().default(30),
+  ADMIN_2FA_CODE: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

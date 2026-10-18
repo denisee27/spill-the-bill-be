@@ -7,8 +7,28 @@ const BASE_URL = 'https://rajaongkir.komerce.id/api/v1';
 const rajaongkir = axios.create({
   baseURL: BASE_URL,
   headers: { key: config.RAJAONGKIR_API_KEY },
-  timeout: 15_000,
+  timeout: 10_000,
 });
+
+const isRetryable = (err) =>
+  err.code === 'ECONNABORTED' || // timeout
+  err.code === 'ECONNRESET' ||
+  err.code === 'ENOTFOUND' ||
+  !err.response; // no response = network error
+
+const withRetry = async (fn, maxRetries = 2, delayMs = 1000) => {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryable(err) || attempt === maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
+};
 
 export const makeShippingService = () => {
   /**
@@ -16,9 +36,11 @@ export const makeShippingService = () => {
    * Returns array of { id, label, province_name, city_name, district_name, subdistrict_name, zip_code }
    */
   const searchDestination = async (query, limit = 10) => {
-    const res = await rajaongkir.get('/destination/domestic-destination', {
-      params: { search: query, limit },
-    });
+    const res = await withRetry(() =>
+      rajaongkir.get('/destination/domestic-destination', {
+        params: { search: query, limit },
+      })
+    );
     return res.data?.data ?? [];
   };
 
@@ -58,9 +80,11 @@ export const makeShippingService = () => {
     form.append('weight', String(Math.max(Number(weight) || 1000, 1)));
     form.append('courier', couriers);
 
-    const res = await rajaongkir.post('/calculate/domestic-cost', form, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    const res = await withRetry(() =>
+      rajaongkir.post('/calculate/domestic-cost', form, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+    );
 
     return res.data?.data ?? [];
   };

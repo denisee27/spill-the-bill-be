@@ -143,6 +143,14 @@ export const makeUserRepository = ({ prisma }) => {
     });
   };
 
+  const updatePhone = async (id, phone) => {
+    return prisma.user.update({
+      where: { id },
+      data: { phone },
+      select: { id: true, email: true, name: true, phone: true, role: true, isMember: true, memberSince: true, memberExpiry: true, createdAt: true },
+    });
+  };
+
   const updatePassword = async (id, hashedPassword) => {
     return prisma.user.update({ where: { id }, data: { password: hashedPassword } });
   };
@@ -155,6 +163,7 @@ export const makeUserRepository = ({ prisma }) => {
     findAll,
     updateRole,
     updateMembership,
+    updatePhone,
     updatePassword,
     findAllWithOrders,
     findExpiredMembers,

@@ -9,9 +9,15 @@ const slugify = (text) =>
 const parseImages = (product) => {
   if (!product) return product;
   const fee = product.fee || 0;
+  const variantList = product.variants ?? [];
+  const totalStock = variantList.length > 0
+    ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0)
+    : product.stock;
   return {
     ...product,
     fee,
+    stock: totalStock,
+    isSoldOut: totalStock === 0,
     displayPrice: product.price + fee,
     images: (() => {
       try {
@@ -20,7 +26,7 @@ const parseImages = (product) => {
         return [];
       }
     })(),
-    variants: (product.variants ?? []).map((v) => ({
+    variants: variantList.map((v) => ({
       ...v,
       displayPrice: (v.price || 0) + (v.fee || 0),
     })),

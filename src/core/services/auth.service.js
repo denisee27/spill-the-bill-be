@@ -1,6 +1,7 @@
 import { ConflictError, NotFoundError, UnauthorizedError } from '../errors/http-errors.js';
+import { config } from '../../config/index.js';
 
-export const makeAuthService = ({ userRepository, hashPassword, comparePassword, signToken }) => {
+export const makeAuthService = ({ userRepository, hashPassword, comparePassword, signToken, verifyToken }) => {
   const register = async ({ email, password, name, phone }) => {
     const existing = await userRepository.findByEmail(email);
     if (existing) throw new ConflictError('Email already registered');
@@ -36,8 +37,47 @@ export const makeAuthService = ({ userRepository, hashPassword, comparePassword,
     const valid = await comparePassword(password, user.password);
     if (!valid) throw new UnauthorizedError('Invalid email or password');
 
+    // Admin 2FA gate: if ADMIN_2FA_CODE is configured, require second factor
+    if (user.role === 'ADMIN' && config.ADMIN_2FA_CODE) {
+      const tempToken = signToken({ id: user.id, role: user.role, pending2fa: true }, '5m');
+      return { requires2fa: true, tempToken };
+    }
+
     const token = signToken({ id: user.id, role: user.role });
 
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+        isMember: user.isMember,
+        memberSince: user.memberSince,
+        memberExpiry: user.memberExpiry,
+      },
+    };
+  };
+
+  const verifyAdminTwoFactor = async (tempToken, code) => {
+    let payload;
+    try {
+      payload = verifyToken(tempToken);
+    } catch {
+      throw new UnauthorizedError('Invalid or expired 2FA session');
+    }
+    if (!payload.pending2fa || payload.role !== 'ADMIN') {
+      throw new UnauthorizedError('Invalid 2FA session');
+    }
+    if (!config.ADMIN_2FA_CODE || code !== config.ADMIN_2FA_CODE) {
+      throw new UnauthorizedError('Invalid 2FA code');
+    }
+
+    const user = await userRepository.findById(payload.id);
+    if (!user) throw new UnauthorizedError('User not found');
+
+    const token = signToken({ id: user.id, role: user.role });
     return {
       token,
       user: {
@@ -59,6 +99,10 @@ export const makeAuthService = ({ userRepository, hashPassword, comparePassword,
     return user;
   };
 
+  const updateProfile = async (userId, { phone }) => {
+    return userRepository.updatePhone(userId, phone?.trim() ?? null);
+  };
+
   const resetPassword = async ({ email, newPassword }) => {
     const user = await userRepository.findByEmail(email);
     if (!user) throw new NotFoundError('No account found with that email');
@@ -66,5 +110,5 @@ export const makeAuthService = ({ userRepository, hashPassword, comparePassword,
     await userRepository.updatePassword(user.id, hashedPassword);
   };
 
-  return { register, login, getMe, resetPassword };
+  return { register, login, getMe, updateProfile, resetPassword, verifyAdminTwoFactor };
 };

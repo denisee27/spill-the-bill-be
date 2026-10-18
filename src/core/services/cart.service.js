@@ -73,6 +73,14 @@ export const makeCartService = ({ cartRepository, productRepository }) => {
       return cartRepository.removeItem(itemId);
     }
 
+    const product = await productRepository.findById(item.productId);
+    if (product) {
+      const stockAvail = item.variantId
+        ? product.variants?.find((v) => v.id === item.variantId)?.stock ?? 0
+        : product.stock;
+      if (quantity > stockAvail) throw new BadRequestError('Insufficient stock');
+    }
+
     return cartRepository.updateItemQuantity(itemId, quantity);
   };
 

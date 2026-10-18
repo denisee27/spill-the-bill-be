@@ -10,10 +10,24 @@ const COOKIE_OPTIONS = {
 };
 
 export const makeAuthController = ({ authService }) => {
+  const verify2fa = async (req, res, next) => {
+    try {
+      const { tempToken, code } = req.body;
+      if (!tempToken || !code) {
+        return res.status(400).json({ success: false, error: 'tempToken and code are required' });
+      }
+      const result = await authService.verifyAdminTwoFactor(tempToken, code);
+      res.cookie('token', result.token, COOKIE_OPTIONS);
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  };
+
   const register = async (req, res, next) => {
     try {
       const { otp, email } = req.body;
-      const valid = checkOtp(email, otp);
+      const valid = await checkOtp(email, otp);
       if (!valid) return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
       const result = await authService.register(req.body);
       res.cookie('token', result.token, COOKIE_OPTIONS);
@@ -52,7 +66,7 @@ export const makeAuthController = ({ authService }) => {
       const { email } = req.body;
       if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
       const code = generateOtp();
-      saveOtp(email, code);
+      await saveOtp(email, code);
       await sendOtpEmail({ to: email, code });
       return res.json({ success: true, data: { message: 'Verification code sent' } });
     } catch (err) {
@@ -64,9 +78,18 @@ export const makeAuthController = ({ authService }) => {
     try {
       const { email, otp } = req.body;
       if (!email || !otp) return res.status(400).json({ success: false, error: 'Email and OTP are required' });
-      const valid = checkOtp(email, otp);
+      const valid = await checkOtp(email, otp);
       if (!valid) return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
       return res.json({ success: true, data: { verified: true } });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  const updateProfile = async (req, res, next) => {
+    try {
+      const user = await authService.updateProfile(req.user.id, req.body);
+      return res.status(200).json({ success: true, data: user });
     } catch (err) {
       next(err);
     }
@@ -75,7 +98,7 @@ export const makeAuthController = ({ authService }) => {
   const resetPassword = async (req, res, next) => {
     try {
       const { email, otp, newPassword } = req.body;
-      const valid = checkOtp(email, otp);
+      const valid = await checkOtp(email, otp);
       if (!valid) return res.status(400).json({ success: false, error: 'Invalid or expired verification code' });
       await authService.resetPassword({ email, newPassword });
       return res.json({ success: true, data: { message: 'Password reset successfully' } });
@@ -84,5 +107,5 @@ export const makeAuthController = ({ authService }) => {
     }
   };
 
-  return { register, login, logout, me, sendOtp, verifyOtp, resetPassword };
+  return { register, login, logout, me, updateProfile, sendOtp, verifyOtp, resetPassword, verify2fa };
 };

@@ -8,28 +8,41 @@ function baseLayout(title, bodyHtml) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title} - Spill the Bill</title>
+  <style>
+    @media only screen and (max-width: 600px) {
+      .email-wrapper  { padding: 0 !important; }
+      .email-outer-td { padding: 0 !important; }
+      .email-container{ border-radius: 0 !important; }
+      .email-header   { padding: 20px 20px !important; }
+      .email-body     { padding: 24px 20px 20px !important; }
+      .email-footer   { padding: 14px 20px !important; }
+      .proof-img-cell { display: block !important; width: 100% !important; padding: 0 0 8px 0 !important; }
+      .btn-full       { display: block !important; text-align: center !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" class="email-wrapper" style="background:#f4f4f5;padding:40px 0;">
     <tr>
-      <td align="center">
-        <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+      <td align="center" class="email-outer-td" style="padding:0 16px;">
+        <!-- fluid container: max-width 520, shrinks on mobile -->
+        <table width="100%" cellpadding="0" cellspacing="0" class="email-container" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
           <!-- Header -->
           <tr>
-            <td style="background:${BRAND};padding:28px 40px;">
+            <td class="email-header" style="background:${BRAND};padding:28px 40px;">
               <p style="margin:0;color:#ffffff;font-size:20px;font-weight:800;letter-spacing:-0.3px;">Spill the Bill</p>
               <p style="margin:4px 0 0;color:rgba(255,255,255,0.65);font-size:12px;">${title}</p>
             </td>
           </tr>
           <!-- Body -->
           <tr>
-            <td style="padding:36px 40px 28px;">
+            <td class="email-body" style="padding:36px 40px 28px;">
               ${bodyHtml}
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding:16px 40px;border-top:1px solid #f3f4f6;">
+            <td class="email-footer" style="padding:16px 40px;border-top:1px solid #f3f4f6;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">Spill the Bill Team &bull; Thank you for shopping with us!</p>
             </td>
           </tr>
@@ -59,8 +72,26 @@ function divider() {
   return `<div style="border-top:1px solid #f3f4f6;margin:24px 0;"></div>`;
 }
 
+function infoCard(bgColor, borderColor, content) {
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+    <tr>
+      <td width="100%" style="width:100%;background:${bgColor};border:1px solid ${borderColor};border-radius:10px;padding:16px 20px;">
+        ${content}
+      </td>
+    </tr>
+  </table>`;
+}
+
 // ── 0. Order created — send QRIS so user can pay ────────────────────────────
-export function orderCreatedEmailHtml({ customerName, orderId, amount, qrisUrl }) {
+export function orderCreatedEmailHtml({ customerName, orderId, amount, paymentDeadline, qrisDownloadUrl }) {
+  const deadlineText = paymentDeadline
+    ? new Date(paymentDeadline).toLocaleString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta', timeZoneName: 'short',
+      })
+    : null;
+
   const body = `
     ${greeting(customerName)}
     ${orderBadge(orderId)}
@@ -71,22 +102,30 @@ export function orderCreatedEmailHtml({ customerName, orderId, amount, qrisUrl }
     </p>
 
     <!-- Total box -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-      <tr>
-        <td style="background:${BRAND_LIGHT};border-radius:10px;padding:16px 20px;text-align:center;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Total to pay</p>
-          <p style="margin:0;font-size:28px;font-weight:800;color:${BRAND};">${amount}</p>
-        </td>
-      </tr>
-    </table>
+    ${infoCard(BRAND_LIGHT, '#fecaca', `
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;text-align:center;">Total to pay</p>
+      <p style="margin:0;font-size:28px;font-weight:800;color:${BRAND};text-align:center;">${amount}</p>
+    `)}
+
+    ${deadlineText ? infoCard('#fffbeb', '#fde68a', `
+      <p style="margin:0;font-size:12px;color:#92400e;line-height:1.6;">
+        <strong>Batas waktu pembayaran:</strong> ${deadlineText}
+      </p>
+      <p style="margin:4px 0 0;font-size:11px;color:#b45309;">Pesanan akan otomatis dibatalkan jika pembayaran tidak diterima sebelum batas waktu.</p>
+    `) : ''}
 
     <!-- QRIS image -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       <tr>
-        <td align="center" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;">
-          <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#374151;">Scan QRIS to Pay</p>
-          ${qrisUrl ? `<img src="${qrisUrl}" alt="QRIS Payment Code" width="220" style="border-radius:8px;display:block;margin:0 auto;" />` : ''}
-          <p style="margin:12px 0 0;font-size:11px;color:#9ca3af;">Open your banking or e-wallet app and scan</p>
+        <td width="100%" align="center" style="width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:20px 16px;text-align:center;">
+          <p style="margin:0 0 16px;font-size:13px;font-weight:700;color:#374151;text-align:center;">Scan QRIS to Pay</p>
+          <img src="cid:qris" alt="QRIS Payment Code" width="200" style="width:200px;max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto;" />
+          <p style="margin:12px 0 16px;font-size:11px;color:#9ca3af;text-align:center;">Open your banking or e-wallet app and scan</p>
+          ${qrisDownloadUrl ? `
+          <a href="${qrisDownloadUrl}" target="_blank" class="btn-full" style="display:inline-block;padding:10px 24px;background:${BRAND};color:#ffffff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;text-align:center;">
+            Download QRIS
+          </a>
+          ` : ''}
         </td>
       </tr>
     </table>
@@ -99,18 +138,24 @@ export function orderCreatedEmailHtml({ customerName, orderId, amount, qrisUrl }
   return baseLayout('Order Confirmed', body);
 }
 
-export function orderCreatedEmailText({ customerName, orderId, amount }) {
+export function orderCreatedEmailText({ customerName, orderId, amount, paymentDeadline }) {
+  const deadlineText = paymentDeadline
+    ? new Date(paymentDeadline).toLocaleString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta', timeZoneName: 'short',
+      })
+    : null;
   return `Hi ${customerName},
 
 Your order #${orderId.toString().slice(0, 8).toUpperCase()} has been placed!
 Total to pay: ${amount}
-
+${deadlineText ? `\nBatas waktu pembayaran: ${deadlineText}\nPesanan akan otomatis dibatalkan jika pembayaran tidak diterima sebelum batas waktu.\n` : ''}
 Please scan the QRIS code in the app or transfer to our bank account, then upload your payment proof in My Orders.
 
 — Spill the Bill Team`;
 }
 
-// ── 1. Payment proof received (user uploaded proof → CHECKING_PAYMENT) ─────
+// ── 1. Payment proof received ───────────────────────────────────────────────
 export function paymentReceivedEmailHtml({ customerName, orderId, amount }) {
   const body = `
     ${greeting(customerName)}
@@ -120,14 +165,10 @@ export function paymentReceivedEmailHtml({ customerName, orderId, amount }) {
       We've received your payment proof for order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong>.
       Our team will verify it shortly — this usually takes less than 24 hours.
     </p>
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td style="background:${BRAND_LIGHT};border-radius:10px;padding:16px 20px;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Order total</p>
-          <p style="margin:0;font-size:22px;font-weight:800;color:${BRAND};">${amount}</p>
-        </td>
-      </tr>
-    </table>
+    ${infoCard(BRAND_LIGHT, '#fecaca', `
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Order total</p>
+      <p style="margin:0;font-size:22px;font-weight:800;color:${BRAND};">${amount}</p>
+    `)}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
       You'll receive another email once your payment is verified. If you have any questions, feel free to contact us via WhatsApp.
@@ -151,29 +192,17 @@ export function paymentApprovedEmailHtml({ customerName, orderId, amount }) {
   const body = `
     ${greeting(customerName)}
     ${orderBadge(orderId, '#15803d')}
-    <p style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Payment Confirmed! 🎉</p>
+    <p style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Payment Confirmed!</p>
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.7;">
       Great news! Your payment for order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong> has been verified and confirmed.
       We're now preparing your order for shipment.
     </p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td>
-                <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
-                ${statusBadge('Payment Approved', '#15803d', '#dcfce7')}
-              </td>
-              <td align="right">
-                <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Total paid</p>
-                <p style="margin:0;font-size:18px;font-weight:800;color:#15803d;">${amount}</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    ${infoCard('#f0fdf4', '#bbf7d0', `
+      <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
+      ${statusBadge('Payment Approved', '#15803d', '#dcfce7')}
+      <p style="margin:14px 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Total paid</p>
+      <p style="margin:0;font-size:22px;font-weight:800;color:#15803d;">${amount}</p>
+    `)}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
       We'll notify you again once your order is shipped. Thank you for shopping with Spill the Bill!
@@ -201,16 +230,10 @@ export function paymentRejectedEmailHtml({ customerName, orderId, reason }) {
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.7;">
       Unfortunately, we were unable to verify your payment for order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong>.
     </p>
-    ${reason ? `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Reason</p>
-          <p style="margin:0;font-size:14px;color:#991b1b;line-height:1.6;">${reason}</p>
-        </td>
-      </tr>
-    </table>
-    ` : ''}
+    ${reason ? infoCard('#fef2f2', '#fecaca', `
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Reason</p>
+      <p style="margin:0;font-size:14px;color:#991b1b;line-height:1.6;">${reason}</p>
+    `) : ''}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
       Please re-upload your payment proof or contact us via WhatsApp if you believe this is an error. We're happy to help resolve this.
@@ -235,8 +258,8 @@ export function orderDeliveredEmailHtml({ customerName, orderId, deliveryNotes, 
     <p style="margin:20px 0 8px;font-size:13px;font-weight:700;color:#374151;">Delivery Proof</p>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        ${proofImageUrls.map((url) => `
-          <td style="padding:0 4px 0 0;" width="${Math.floor(100 / Math.min(proofImageUrls.length, 3))}%">
+        ${proofImageUrls.slice(0, 3).map((url) => `
+          <td class="proof-img-cell" style="padding:0 4px 0 0;" width="${Math.floor(100 / Math.min(proofImageUrls.length, 3))}%">
             <a href="${url}" target="_blank" style="display:block;">
               <img src="${url}" alt="Delivery proof" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;object-fit:cover;" />
             </a>
@@ -254,15 +277,11 @@ export function orderDeliveredEmailHtml({ customerName, orderId, deliveryNotes, 
       Order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong> has been marked as delivered.
       We hope you love your purchase!
     </p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 20px;">
-          <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
-          ${statusBadge('Delivered', '#1d4ed8', '#dbeafe')}
-          ${deliveryNotes ? `<p style="margin:12px 0 0;font-size:13px;color:#1e40af;line-height:1.6;"><strong>Note:</strong> ${deliveryNotes}</p>` : ''}
-        </td>
-      </tr>
-    </table>
+    ${infoCard('#eff6ff', '#bfdbfe', `
+      <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
+      ${statusBadge('Delivered', '#1d4ed8', '#dbeafe')}
+      ${deliveryNotes ? `<p style="margin:12px 0 0;font-size:13px;color:#1e40af;line-height:1.6;"><strong>Note:</strong> ${deliveryNotes}</p>` : ''}
+    `)}
     ${imagesHtml}
     ${divider()}
     <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
@@ -286,7 +305,7 @@ Thank you for shopping with Spill the Bill!
 // ── 5. Order shipped ─────────────────────────────────────────────────────────
 export function orderShippedEmailHtml({ customerName, orderId, deliveryNotes, estimatedDeliveryDate, frontendUrl }) {
   const etaText = estimatedDeliveryDate
-    ? new Date(estimatedDeliveryDate).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(estimatedDeliveryDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
   const body = `
@@ -296,15 +315,11 @@ export function orderShippedEmailHtml({ customerName, orderId, deliveryNotes, es
     <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.7;">
       Order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong> has been handed to the courier and is on its way to you.
     </p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:16px 20px;">
-          ${statusBadge('Shipped', '#6d28d9', '#ede9fe')}
-          ${etaText ? `<p style="margin:12px 0 0;font-size:13px;color:#5b21b6;line-height:1.6;"><strong>Estimated arrival:</strong> ${etaText}</p>` : ''}
-          ${deliveryNotes ? `<p style="margin:8px 0 0;font-size:13px;color:#5b21b6;line-height:1.6;"><strong>Note:</strong> ${deliveryNotes}</p>` : ''}
-        </td>
-      </tr>
-    </table>
+    ${infoCard('#f5f3ff', '#ddd6fe', `
+      ${statusBadge('Shipped', '#6d28d9', '#ede9fe')}
+      ${etaText ? `<p style="margin:12px 0 0;font-size:13px;color:#5b21b6;line-height:1.6;"><strong>Estimated arrival:</strong> ${etaText}</p>` : ''}
+      ${deliveryNotes ? `<p style="margin:8px 0 0;font-size:13px;color:#5b21b6;line-height:1.6;"><strong>Note:</strong> ${deliveryNotes}</p>` : ''}
+    `)}
     ${divider()}
     <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
       Once your package arrives, please confirm receipt in the app so we know it's been delivered safely.
@@ -316,7 +331,7 @@ export function orderShippedEmailHtml({ customerName, orderId, deliveryNotes, es
 
 export function orderShippedEmailText({ customerName, orderId, deliveryNotes, estimatedDeliveryDate }) {
   const etaText = estimatedDeliveryDate
-    ? new Date(estimatedDeliveryDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(estimatedDeliveryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
   return `Hi ${customerName},
 
@@ -328,7 +343,7 @@ Please confirm receipt in the app once your package arrives.
 — Spill the Bill Team`;
 }
 
-// ── 6. Refund requested (admin triggered) ────────────────────────────────────
+// ── 6. Refund requested ──────────────────────────────────────────────────────
 export function refundRequestedEmailHtml({ customerName, orderId, reason, frontendUrl }) {
   const body = `
     ${greeting(customerName)}
@@ -338,16 +353,10 @@ export function refundRequestedEmailHtml({ customerName, orderId, reason, fronte
       We need to refund your payment for order <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong>.
       Please provide your bank account or e-wallet details so we can transfer the funds back to you.
     </p>
-    ${reason ? `
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      <tr>
-        <td style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Reason</p>
-          <p style="margin:0;font-size:14px;color:#92400e;line-height:1.6;">${reason}</p>
-        </td>
-      </tr>
-    </table>
-    ` : ''}
+    ${reason ? infoCard('#fffbeb', '#fde68a', `
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">Reason</p>
+      <p style="margin:0;font-size:14px;color:#92400e;line-height:1.6;">${reason}</p>
+    `) : ''}
     ${divider()}
     <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
       Please open your order detail to fill in your bank account or e-wallet information.

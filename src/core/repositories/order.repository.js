@@ -54,8 +54,9 @@ export const makeOrderRepository = ({ prisma }) => {
     if (status) where.status = status;
     if (search) {
       where.OR = [
-        { user: { name: { contains: search } } },
-        { user: { email: { contains: search } } },
+        { id: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
       ];
     }
     if (dateFrom || dateTo) {
@@ -86,15 +87,23 @@ export const makeOrderRepository = ({ prisma }) => {
     return { orders, total, page, limit };
   };
 
-  const updateStatus = async (id, status) => {
-    return prisma.order.update({ where: { id }, data: { status } });
+  const recordStatusHistory = async (orderId, status, notes = null) => {
+    await prisma.orderStatusHistory.create({ data: { orderId, status, notes } });
+  };
+
+  const updateStatus = async (id, status, notes = null) => {
+    const order = await prisma.order.update({ where: { id }, data: { status } });
+    await recordStatusHistory(id, status, notes);
+    return order;
   };
 
   const updateRejection = async (id, rejectionNotes) => {
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id },
       data: { status: 'PAYMENT_REJECTED', rejectionNotes: rejectionNotes ?? null },
     });
+    await recordStatusHistory(id, 'PAYMENT_REJECTED', rejectionNotes ?? null);
+    return order;
   };
 
   const addPaymentProof = async (orderId, imageUrl) => {
@@ -131,7 +140,7 @@ export const makeOrderRepository = ({ prisma }) => {
   };
 
   const updateWithDeliveryProof = async (id, { notes, filenames, estimatedDeliveryDate }) => {
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id },
       data: {
         status: 'SHIPPED',
@@ -140,13 +149,28 @@ export const makeOrderRepository = ({ prisma }) => {
         estimatedDeliveryDate: estimatedDeliveryDate ? new Date(estimatedDeliveryDate) : null,
       },
     });
+    await recordStatusHistory(id, 'SHIPPED', notes || null);
+    return order;
   };
 
   const confirmDelivery = async (id) => {
-    return prisma.order.update({
+    const order = await prisma.order.update({
       where: { id },
       data: { status: 'DELIVERED' },
     });
+    await recordStatusHistory(id, 'DELIVERED');
+    return order;
+  };
+
+  const hasDeliveredProductForUser = async (userId, productId) => {
+    const count = await prisma.order.count({
+      where: {
+        userId,
+        status: 'DELIVERED',
+        items: { some: { productId } },
+      },
+    });
+    return count > 0;
   };
 
   const createRefundDetail = async (orderId, data) => {
@@ -276,5 +300,6 @@ export const makeOrderRepository = ({ prisma }) => {
     getTopProducts,
     getTypeRevenue,
     findExpiredPendingOrders,
+    hasDeliveredProductForUser,
   };
 };

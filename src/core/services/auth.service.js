@@ -13,6 +13,7 @@ export const makeAuthService = ({ userRepository, hashPassword, comparePassword,
       name,
       phone: phone ?? null,
       role: 'USER',
+      isVerified: true,
     });
 
     const token = signToken({ id: user.id, role: user.role });
@@ -110,5 +111,10 @@ export const makeAuthService = ({ userRepository, hashPassword, comparePassword,
     await userRepository.updatePassword(user.id, hashedPassword);
   };
 
-  return { register, login, getMe, updateProfile, resetPassword, verifyAdminTwoFactor };
+  const checkEmailExists = async (email) => {
+    const user = await userRepository.findByEmail(email);
+    return Boolean(user);
+  };
+
+  return { register, login, getMe, updateProfile, resetPassword, verifyAdminTwoFactor, checkEmailExists };
 };

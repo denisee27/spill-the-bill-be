@@ -40,7 +40,9 @@ export const makeAuthController = ({ authService }) => {
   const login = async (req, res, next) => {
     try {
       const result = await authService.login(req.body);
-      res.cookie('token', result.token, COOKIE_OPTIONS);
+      if (result.token) {
+        res.cookie('token', result.token, COOKIE_OPTIONS);
+      }
       return res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
@@ -63,8 +65,16 @@ export const makeAuthController = ({ authService }) => {
 
   const sendOtp = async (req, res, next) => {
     try {
-      const { email } = req.body;
+      const { email, type } = req.body;
       if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
+
+      if (type === 'register') {
+        const existing = await authService.checkEmailExists(email);
+        if (existing) {
+          return res.status(409).json({ success: false, error: 'Email sudah terdaftar. Silakan login atau gunakan email lain.' });
+        }
+      }
+
       const code = generateOtp();
       await saveOtp(email, code);
       await sendOtpEmail({ to: email, code });

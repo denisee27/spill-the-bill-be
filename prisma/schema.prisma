@@ -15,6 +15,7 @@ model User {
   name          String
   phone         String?
   role          String    @default("USER")
+  isVerified    Boolean   @default(false)
   isMember          Boolean   @default(false)
   memberSince       DateTime?
   memberExpiry      DateTime?

@@ -41,9 +41,14 @@ const container = buildContainer();
 
 // Middleware stack (in order)
 app.use(helmet());
+const allowedOrigins = config.CORS_ORIGIN.split(',').map((o) => o.trim());
 app.use(
   cors({
-    origin: config.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // allow requests with no origin (mobile, curl, same-origin)
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   })
 );

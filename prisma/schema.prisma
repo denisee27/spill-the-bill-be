@@ -15,9 +15,10 @@ model User {
   name          String
   phone         String?
   role          String    @default("USER")
-  isMember      Boolean   @default(false)
-  memberSince   DateTime?
-  memberExpiry  DateTime?
+  isMember          Boolean   @default(false)
+  memberSince       DateTime?
+  memberExpiry      DateTime?
+  memberPeriodStart DateTime?
   createdAt     DateTime  @default(now())
 
   addresses     Address[]
@@ -103,6 +104,7 @@ model Product {
   isFeatured    Boolean   @default(false)
   isSoldOut     Boolean   @default(false)
   freeShipping  Boolean   @default(false)
+  memberOnly    Boolean   @default(false)
   originId      String?
   condition     String?   @default("New")
   weight        Float     @default(0)
@@ -284,10 +286,8 @@ model VoucherUsage {
 model MemberSetting {
   id                    Int     @id @default(1)
   minMonthlyAmount      Float   @default(500000)
-  discountPercent       Float   @default(10)
-  hasFreeShipping       Boolean @default(false)
-  freeShippingMinAmount Float   @default(0)
-  renewalPeriodDays     Int     @default(30)
+  hasFreeShipping       Boolean @default(true)
+  renewalPeriodDays     Int     @default(180)
 }
 
 model WhatsappSetting {

@@ -7,6 +7,7 @@ import {
   sendOrderDeliveredEmail,
   sendOrderShippedEmail,
   sendRefundRequestedEmail,
+  sendRefundDetailSubmittedEmail,
 } from '../../infra/mailer/index.js';
 import { config } from '../../config/index.js';
 
@@ -108,21 +109,13 @@ export const makeOrderService = ({
     const memberSettings = await memberRepository.getSettings();
     const user = await userRepository.findById(userId);
 
-    // Member discount on subtotal
-    if (user?.isMember && memberSettings.discountPercent > 0) {
-      const memberDiscount = Math.floor((subtotal * memberSettings.discountPercent) / 100);
-      discountAmount = Math.min(discountAmount + memberDiscount, subtotal);
-    }
-
     // Shipping fee: validate and apply free shipping
     let shippingFee = Math.max(0, Math.min(Number(clientShippingFee) || 0, 2_000_000));
     const allProductsFreeShipping = selectedItems.every((item) => item.product?.freeShipping === true);
     if (allProductsFreeShipping) {
       shippingFee = 0;
     } else if (user?.isMember && memberSettings.hasFreeShipping) {
-      if (subtotal >= memberSettings.freeShippingMinAmount) {
-        shippingFee = 0;
-      }
+      shippingFee = 0;
     } else if (courierService && shippingFee <= 0) {
       throw new BadRequestError('Shipping fee is required when a courier is selected');
     }
@@ -270,16 +263,24 @@ export const makeOrderService = ({
   const processRefund = async (orderId, { notes, filenames }) => {
     const order = await orderRepository.findById(orderId);
     if (!order) throw new NotFoundError('Order not found');
-    if (order.status !== 'REFUND_REQUESTED') {
-      throw new BadRequestError('Order is not in REFUND_REQUESTED status');
+    if (!['REFUND_REQUESTED', 'REFUNDED'].includes(order.status)) {
+      throw new BadRequestError('Order is not in a refundable status');
     }
-    if (!order.refundRequest) throw new NotFoundError('Refund request not found');
+    if (!order.refundDetail) {
+      throw new BadRequestError('User has not submitted refund account details yet');
+    }
 
     await orderRepository.updateStatus(orderId, 'REFUNDED');
-    return orderRepository.approveRefund(orderId, {
-      adminNotes: notes || null,
-      adminProofImages: filenames || [],
-    });
+
+    // Only update RefundRequest record when it exists (user-initiated refund flow)
+    if (order.refundRequest) {
+      await orderRepository.approveRefund(orderId, {
+        adminNotes: notes || null,
+        adminProofImages: filenames || [],
+      });
+    }
+
+    return orderRepository.findById(orderId);
   };
 
   const formatRupiah = (n) => `Rp${Number(n).toLocaleString('id-ID')}`;
@@ -305,6 +306,7 @@ export const makeOrderService = ({
     if (!order) throw new NotFoundError('Order not found');
 
     await orderRepository.updateRejection(orderId, notes || null);
+    await restoreStock(order.items);
 
     sendPaymentRejectedEmail({
       to: order.user.email,
@@ -400,7 +402,21 @@ export const makeOrderService = ({
     const existing = await orderRepository.findRefundDetailByOrderId(orderId);
     if (existing) throw new ConflictError('Refund detail already submitted');
 
-    return orderRepository.createRefundDetail(orderId, data);
+    const result = await orderRepository.createRefundDetail(orderId, data);
+
+    const adminEmail = config.ADMIN_EMAIL || config.SMTP_USER;
+    if (adminEmail) {
+      sendRefundDetailSubmittedEmail({
+        to: adminEmail,
+        orderId,
+        customerName: order.user.name,
+        customerEmail: order.user.email,
+        refundDetail: data,
+        adminOrderUrl: `${config.FRONTEND_URL}/admin/orders/${orderId}`,
+      }).catch(() => {});
+    }
+
+    return result;
   };
 
   const restoreStock = async (items) => {

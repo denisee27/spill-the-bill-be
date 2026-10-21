@@ -4,44 +4,39 @@ import logger from '../infra/logger/index.js';
 export const startMemberRenewalJob = (container) => {
   const userRepository = container.resolve('userRepository');
   const memberRepository = container.resolve('memberRepository');
-  const orderRepository = container.resolve('orderRepository');
 
-  // Run daily at 00:05
   cron.schedule('5 0 * * *', async () => {
     logger.info('Running member renewal job');
-
     try {
-      // Step 1: Expire members whose memberExpiry < now
-      const expiredMembers = await userRepository.findExpiredMembers();
-      for (const user of expiredMembers) {
-        await userRepository.updateMembership(user.id, {
-          isMember: false,
-          memberSince: null,
-          memberExpiry: null,
-        });
-        logger.info({ userId: user.id }, 'Membership expired');
-      }
-
-      // Step 2: Check if non-members qualify based on monthly spending
       const settings = await memberRepository.getSettings();
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const nonMembersWithOrders = await userRepository.findNonMembersWithOrders(startOfMonth);
+      // Find members whose memberExpiry has passed
+      const expiredMembers = await userRepository.findExpiredMembers();
 
-      for (const user of nonMembersWithOrders) {
-        const monthlyTotal = user.orders.reduce((sum, o) => sum + o.total, 0);
-        if (monthlyTotal >= settings.minMonthlyAmount) {
-          const memberSince = new Date();
-          const memberExpiry = new Date(memberSince);
+      for (const user of expiredMembers) {
+        // Check spend during their membership period
+        const periodStart = user.memberSince ?? user.createdAt;
+        const currentSpend = await memberRepository.getUserPeriodSpend(user.id, periodStart);
+
+        if (currentSpend >= settings.minMonthlyAmount) {
+          // Renew for another period
+          const memberExpiry = new Date(now);
           memberExpiry.setDate(memberExpiry.getDate() + settings.renewalPeriodDays);
-
           await userRepository.updateMembership(user.id, {
-            isMember: true,
-            memberSince,
+            memberSince: now,
             memberExpiry,
           });
-          logger.info({ userId: user.id, monthlyTotal }, 'Membership granted');
+          logger.info({ userId: user.id, currentSpend }, 'Membership renewed');
+        } else {
+          // Did not meet spend threshold — expire, reset period to now
+          await userRepository.updateMembership(user.id, {
+            isMember: false,
+            memberSince: null,
+            memberExpiry: null,
+            memberPeriodStart: now,
+          });
+          logger.info({ userId: user.id, currentSpend }, 'Membership expired — reset period');
         }
       }
 

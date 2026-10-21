@@ -15,6 +15,7 @@ export const makeUserRepository = ({ prisma }) => {
         isMember: true,
         memberSince: true,
         memberExpiry: true,
+        memberPeriodStart: true,
         createdAt: true,
       },
     });
@@ -117,6 +118,7 @@ export const makeUserRepository = ({ prisma }) => {
         isMember: true,
         memberExpiry: { lt: new Date() },
       },
+      select: { id: true, memberSince: true, memberExpiry: true, createdAt: true },
     });
   };
 
@@ -124,17 +126,32 @@ export const makeUserRepository = ({ prisma }) => {
     return prisma.user.findMany({
       where: {
         isMember: false,
+        orders: { some: { status: 'DELIVERED', createdAt: { gte: startOfMonth } } },
+      },
+      include: {
+        orders: {
+          where: { status: 'DELIVERED', createdAt: { gte: startOfMonth } },
+          select: { total: true },
+        },
+      },
+    });
+  };
+
+  const findUsersWithOrders = async (startOfMonth) => {
+    return prisma.user.findMany({
+      where: {
         orders: {
           some: {
-            status: 'DELIVERED',
+            status: { in: ['PAYMENT_APPROVED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
             createdAt: { gte: startOfMonth },
           },
         },
       },
-      include: {
+      select: {
+        id: true, isMember: true, memberSince: true,
         orders: {
           where: {
-            status: 'DELIVERED',
+            status: { in: ['PAYMENT_APPROVED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
             createdAt: { gte: startOfMonth },
           },
           select: { total: true },
@@ -168,6 +185,7 @@ export const makeUserRepository = ({ prisma }) => {
     findAllWithOrders,
     findExpiredMembers,
     findNonMembersWithOrders,
+    findUsersWithOrders,
     countAll: () => prisma.user.count({ where: { role: 'USER' } }),
   };
 };

@@ -1,58 +1,112 @@
+const addDays = (date, days) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
 export const makeMemberService = ({ memberRepository, userRepository }) => {
-  const getSettings = async () => {
-    return memberRepository.getSettings();
-  };
+  const getSettings = async () => memberRepository.getSettings();
 
-  const updateSettings = async (data) => {
-    return memberRepository.updateSettings(data);
-  };
+  const updateSettings = async (data) => memberRepository.updateSettings(data);
 
-  const listMembers = async (filters) => {
-    return memberRepository.findAllMembers(filters);
-  };
+  const listMembers = async (filters) => memberRepository.findAllMembers(filters);
 
   const getMemberProgress = async (userId) => {
-    const [user, settings, currentSpend] = await Promise.all([
+    const [user, settings] = await Promise.all([
       userRepository.findById(userId),
       memberRepository.getSettings(),
-      memberRepository.getUserMonthlySpend(userId),
     ]);
 
-    const { minMonthlyAmount, discountPercent, hasFreeShipping, freeShippingMinAmount, renewalPeriodDays } = settings;
+    const { minMonthlyAmount, hasFreeShipping, renewalPeriodDays } = settings;
+    const now = new Date();
 
-    // Auto-grant membership if threshold crossed and not yet a member
-    if (!user.isMember && currentSpend >= minMonthlyAmount) {
-      const memberSince = new Date();
-      const memberExpiry = new Date(memberSince);
-      memberExpiry.setDate(memberExpiry.getDate() + renewalPeriodDays);
-      await userRepository.updateMembership(userId, { isMember: true, memberSince, memberExpiry });
-      user.isMember = true;
-      user.memberSince = memberSince;
-      user.memberExpiry = memberExpiry;
+    // ── Active member ──────────────────────────────────────────────
+    if (user.isMember) {
+      const periodStart = user.memberSince ?? user.createdAt;
+      const currentSpend = await memberRepository.getUserPeriodSpend(userId, periodStart);
+
+      const progressPercent = Math.min(100, Math.round((currentSpend / minMonthlyAmount) * 100));
+      const remaining = Math.max(0, minMonthlyAmount - currentSpend);
+
+      let daysUntilExpiry = null;
+      if (user.memberExpiry) {
+        daysUntilExpiry = Math.max(0, Math.ceil((new Date(user.memberExpiry) - now) / 86400000));
+      }
+
+      return {
+        isMember: true,
+        memberSince: user.memberSince,
+        memberExpiry: user.memberExpiry,
+        daysUntilExpiry,
+        currentSpend,
+        minMonthlyAmount,
+        hasFreeShipping,
+        activeFreeShipping: hasFreeShipping,
+        renewalPeriodDays,
+        progressPercent,
+        remaining,
+        daysLeftInWindow: daysUntilExpiry,
+        windowEnd: user.memberExpiry,
+      };
+    }
+
+    // ── Non-member: 180-day qualifying window ──────────────────────
+    let periodStart = user.memberPeriodStart ?? user.createdAt;
+    const windowEnd = addDays(periodStart, renewalPeriodDays);
+
+    // Window expired — reset to now, spending starts fresh
+    if (now > windowEnd) {
+      periodStart = now;
+      await userRepository.updateMembership(userId, { memberPeriodStart: now });
+    }
+
+    const currentSpend = await memberRepository.getUserPeriodSpend(userId, periodStart);
+
+    // Threshold reached — grant membership
+    if (currentSpend >= minMonthlyAmount) {
+      const memberSince = now;
+      const memberExpiry = addDays(now, renewalPeriodDays);
+      await userRepository.updateMembership(userId, {
+        isMember: true,
+        memberSince,
+        memberExpiry,
+        memberPeriodStart: null,
+      });
+      return {
+        isMember: true,
+        memberSince,
+        memberExpiry,
+        daysUntilExpiry: renewalPeriodDays,
+        currentSpend,
+        minMonthlyAmount,
+        hasFreeShipping,
+        activeFreeShipping: hasFreeShipping,
+        renewalPeriodDays,
+        progressPercent: 100,
+        remaining: 0,
+        daysLeftInWindow: renewalPeriodDays,
+        windowEnd: memberExpiry,
+      };
     }
 
     const progressPercent = Math.min(100, Math.round((currentSpend / minMonthlyAmount) * 100));
     const remaining = Math.max(0, minMonthlyAmount - currentSpend);
-
-    let daysUntilExpiry = null;
-    if (user.isMember && user.memberExpiry) {
-      const diff = new Date(user.memberExpiry) - new Date();
-      daysUntilExpiry = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-    }
+    const daysLeftInWindow = Math.max(0, Math.ceil((windowEnd - now) / 86400000));
 
     return {
-      isMember: user.isMember,
-      memberSince: user.memberSince,
-      memberExpiry: user.memberExpiry,
-      daysUntilExpiry,
+      isMember: false,
+      memberSince: null,
+      memberExpiry: null,
+      daysUntilExpiry: null,
       currentSpend,
       minMonthlyAmount,
+      hasFreeShipping,
+      activeFreeShipping: false,
+      renewalPeriodDays,
       progressPercent,
       remaining,
-      discountPercent,
-      hasFreeShipping,
-      freeShippingMinAmount,
-      renewalPeriodDays,
+      daysLeftInWindow,
+      windowEnd,
     };
   };
 

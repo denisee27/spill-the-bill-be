@@ -56,19 +56,27 @@ export const makeMemberRepository = ({ prisma }) => {
     return { users, total, page, limit };
   };
 
-  const getUserMonthlySpend = async (userId) => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const getUserPeriodSpend = async (userId, since) => {
     const result = await prisma.order.aggregate({
       _sum: { total: true },
       where: {
         userId,
         status: { in: ['PAYMENT_APPROVED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
-        createdAt: { gte: startOfMonth },
+        createdAt: { gte: since },
       },
     });
     return result._sum.total ?? 0;
   };
 
-  return { getSettings, updateSettings, getWhatsappSettings, updateWhatsappSettings, findAllMembers, getUserMonthlySpend };
+  const findMembersExpiringInDays = async (days) => {
+    const from = new Date();
+    const to = new Date();
+    to.setDate(to.getDate() + days);
+    return prisma.user.findMany({
+      where: { isMember: true, memberExpiry: { gte: from, lte: to } },
+      select: { id: true, email: true, name: true, memberExpiry: true },
+    });
+  };
+
+  return { getSettings, updateSettings, getWhatsappSettings, updateWhatsappSettings, findAllMembers, getUserPeriodSpend, findMembersExpiringInDays };
 };

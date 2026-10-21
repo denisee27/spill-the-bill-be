@@ -21,6 +21,8 @@ import {
   orderShippedEmailText,
   refundRequestedEmailHtml,
   refundRequestedEmailText,
+  refundDetailSubmittedEmailHtml,
+  refundDetailSubmittedEmailText,
 } from './order.template.js';
 
 const transporter = nodemailer.createTransport({
@@ -187,6 +189,20 @@ export async function sendRefundRequestedEmail({ to, orderId, customerName, reas
     logger.info({ orderId, to }, 'Refund requested email sent');
   } catch (err) {
     logger.error({ err, orderId }, 'Failed to send refund requested email');
+  }
+}
+
+export async function sendRefundDetailSubmittedEmail({ to, orderId, customerName, customerEmail, refundDetail, adminOrderUrl }) {
+  try {
+    await sendMail({
+      to,
+      subject: `[Action Required] Refund Details Submitted - Order #${orderId.toString().slice(0, 8).toUpperCase()}`,
+      html: refundDetailSubmittedEmailHtml({ orderId, customerName, customerEmail, refundDetail, adminOrderUrl }),
+      text: refundDetailSubmittedEmailText({ orderId, customerName, customerEmail, refundDetail }),
+    });
+    logger.info({ orderId, to }, 'Refund detail submitted email sent to admin');
+  } catch (err) {
+    logger.error({ err, orderId }, 'Failed to send refund detail submitted email');
   }
 }
 

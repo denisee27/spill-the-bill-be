@@ -376,3 +376,51 @@ ${frontendUrl ? `\nLink: ${frontendUrl}/orders/${orderId}` : ''}
 
 — Spill the Bill Team`;
 }
+
+// ── 7. Admin: user submitted refund details ──────────────────────────────────
+export function refundDetailSubmittedEmailHtml({ orderId, customerName, customerEmail, refundDetail, adminOrderUrl }) {
+  const isBank = refundDetail.method === 'BANK';
+  const detailContent = isBank ? `
+    <p style="margin:0 0 6px;font-size:13px;color:#374151;"><strong>Bank:</strong> ${refundDetail.bankName}</p>
+    <p style="margin:0 0 6px;font-size:13px;color:#374151;"><strong>No. Rekening:</strong> ${refundDetail.accountNumber}</p>
+    <p style="margin:0;font-size:13px;color:#374151;"><strong>Atas Nama:</strong> ${refundDetail.accountName}</p>
+  ` : `
+    <p style="margin:0 0 6px;font-size:13px;color:#374151;"><strong>E-Wallet:</strong> ${refundDetail.ewalletPlatform}</p>
+    <p style="margin:0;font-size:13px;color:#374151;"><strong>Nomor:</strong> ${refundDetail.ewalletNumber}</p>
+  `;
+
+  const body = `
+    <p style="margin:0 0 20px;font-size:12px;font-weight:700;color:#d97706;letter-spacing:0.05em;text-transform:uppercase;">
+      Admin Notification
+    </p>
+    <p style="margin:0 0 8px;font-size:22px;font-weight:800;color:#111827;">Refund Details Submitted</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.7;">
+      <strong>${customerName}</strong> (${customerEmail}) has submitted their refund account details for order
+      <strong>#${orderId.toString().slice(0, 8).toUpperCase()}</strong>.
+      You can now process the refund.
+    </p>
+    ${infoCard('#fffbeb', '#fde68a', `
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.08em;">
+        Refund Method: ${isBank ? 'Bank Transfer' : 'E-Wallet'}
+      </p>
+      ${detailContent}
+    `)}
+    ${divider()}
+    ${adminOrderUrl ? `<a href="${adminOrderUrl}" style="display:inline-block;padding:12px 28px;background:#d97706;color:#fff;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;">Open Order in Admin</a>` : ''}
+  `;
+  return baseLayout('Refund Details Submitted', body);
+}
+
+export function refundDetailSubmittedEmailText({ orderId, customerName, customerEmail, refundDetail }) {
+  const isBank = refundDetail.method === 'BANK';
+  const details = isBank
+    ? `Bank: ${refundDetail.bankName}\nNo. Rekening: ${refundDetail.accountNumber}\nAtas Nama: ${refundDetail.accountName}`
+    : `E-Wallet: ${refundDetail.ewalletPlatform}\nNomor: ${refundDetail.ewalletNumber}`;
+  return `[Admin Notification] Refund Details Submitted
+
+${customerName} (${customerEmail}) has submitted refund details for order #${orderId.toString().slice(0, 8).toUpperCase()}.
+
+${details}
+
+Please log in to admin panel to process the refund.`;
+}

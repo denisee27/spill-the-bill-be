@@ -253,6 +253,7 @@ model RefundDetail {
   accountName     String?
   ewalletPlatform String?
   ewalletNumber   String?
+  ewalletName     String?
   createdAt       DateTime @default(now())
 
   order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)

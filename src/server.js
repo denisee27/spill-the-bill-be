@@ -29,6 +29,7 @@ import { makeFavoriteRouter } from './api/v1/favorites/favorite.router.js';
 import { makeReviewRouter } from './api/v1/reviews/review.router.js';
 import { makeRegionRouter } from './api/v1/regions/region.router.js';
 import { makeProductTypeRouter } from './api/v1/product-types/product-type.router.js';
+import { makeUploadRouter } from './api/v1/upload/upload.router.js';
 
 // Jobs
 import { startMemberRenewalJob } from './jobs/member-renewal.job.js';
@@ -96,6 +97,7 @@ app.use('/api/v1/favorites', makeFavoriteRouter(container));
 app.use('/api/v1/reviews', makeReviewRouter(container));
 app.use('/api/v1/regions', makeRegionRouter(container));
 app.use('/api/v1/product-types', makeProductTypeRouter(container));
+app.use('/api/v1/upload', makeUploadRouter());
 
 // Health check
 app.get('/health', (req, res) => {

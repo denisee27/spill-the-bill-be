@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 
+import { resolve } from 'path';
 import { config } from './config/index.js';
 import logger from './infra/logger/index.js';
 import { buildContainer } from './container.js';
@@ -56,6 +57,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use('/uploads', express.static(resolve(config.UPLOAD_DIR)));
 app.use(
   pinoHttp({
     logger,

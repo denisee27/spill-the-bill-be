@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { requireAdmin } from '../../middleware/require-admin.js';
-import { uploadToS3 } from '../../../infra/storage/s3.js';
+import { saveFile, getPublicUrl } from '../../../infra/storage/index.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -34,7 +34,8 @@ export function makeUploadRouter() {
           .webp({ quality: 85 })
           .toBuffer();
         const key = `temp/${uuidv4()}.webp`;
-        const url = await uploadToS3(compressed, key, 'image/webp');
+        const result = await saveFile(compressed, key, 'image/webp');
+        const url = getPublicUrl(result);
         return res.json({ success: true, data: { url } });
       } catch (err) {
         next(err);

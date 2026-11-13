@@ -28,6 +28,9 @@ const envSchema = z.object({
   PAYMENT_EXPIRY_MINUTES: z.coerce.number().int().positive().default(30),
   ADMIN_2FA_CODE: z.string().optional(),
   ADMIN_EMAIL: z.string().optional(),
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  UPLOAD_DIR: z.string().default('./uploads'),
+  SITE_URL: z.string().default('http://localhost:3000'),
 });
 
 const parsed = envSchema.safeParse(process.env);

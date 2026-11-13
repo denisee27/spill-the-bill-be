@@ -2,7 +2,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import { BadRequestError } from '../../core/errors/http-errors.js';
-import { uploadToS3 } from '../../infra/storage/s3.js';
+import { saveFile } from '../../infra/storage/index.js';
 
 const fileFilter = (req, file, cb) => {
   const allowed = [
@@ -55,7 +55,7 @@ const processFile = async (file) => {
   if (isVideo) {
     const ext = file.originalname.split('.').pop() || 'mp4';
     const key = `${uuidv4()}.${ext}`;
-    const url = await uploadToS3(file.buffer, key, file.mimetype);
+    const url = await saveFile(file.buffer, key, file.mimetype);
     file.filename = url;
   } else {
     const key = `${uuidv4()}.webp`;
@@ -64,7 +64,7 @@ const processFile = async (file) => {
       .webp({ quality: 90 })
       .toBuffer();
     const withWatermark = await addWatermark(compressed);
-    const url = await uploadToS3(withWatermark, key, 'image/webp');
+    const url = await saveFile(withWatermark, key, 'image/webp');
     file.filename = url;
   }
 };

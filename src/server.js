@@ -112,14 +112,16 @@ app.use((req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-// Start jobs
-startMemberRenewalJob(container);
-startAutoCancelOrdersJob(container);
+// On VPS / local: start server + cron jobs
+// On Vercel serverless: just export app (VERCEL env var is set automatically)
+if (!process.env.VERCEL) {
+  startMemberRenewalJob(container);
+  startAutoCancelOrdersJob(container);
 
-// Start server
-const PORT = config.PORT;
-app.listen(PORT, () => {
-  logger.info(`Spill the Bill API running on port ${PORT} (${config.NODE_ENV})`);
-});
+  const PORT = config.PORT;
+  app.listen(PORT, () => {
+    logger.info(`Spill the Bill API running on port ${PORT} (${config.NODE_ENV})`);
+  });
+}
 
 export default app;

@@ -48,7 +48,8 @@ jobs:
             cd /opt/spill-the-bill/backend
 
             echo "── Pull latest code ──"
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             echo "── Install dependencies ──"
             npm ci --ignore-scripts

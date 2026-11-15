@@ -46,9 +46,7 @@ async function main() {
     data: {
       id: 1,
       minMonthlyAmount: 500000,
-      discountPercent: 10,
       hasFreeShipping: true,
-      freeShippingMinAmount: 0,
       renewalPeriodDays: 180,
     },
   });
